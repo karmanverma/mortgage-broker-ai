@@ -2,14 +2,26 @@
 import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from '@/components/ui/use-toast';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, profile } = useAuth();
   const location = useLocation();
+
+  useEffect(() => {
+    // Check if user exists but profile is missing
+    if (user && !profile && !isLoading) {
+      toast({
+        variant: "destructive",
+        title: "Profile Error",
+        description: "Your user profile is missing. Please contact support.",
+      });
+    }
+  }, [user, profile, isLoading]);
 
   if (isLoading) {
     // Return a loading state while checking authentication

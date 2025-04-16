@@ -13,3 +13,11 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     autoRefreshToken: true,
   }
 });
+
+// Define storage folder paths
+export const getStoragePaths = (userId: string) => {
+  return {
+    documents: `${userId}/documents`,
+    profileImages: `${userId}/profile`,
+  };
+};
