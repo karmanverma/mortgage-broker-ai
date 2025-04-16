@@ -11,14 +11,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useAuth } from "@/contexts/AuthContext";
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  
+  const { resetPassword, isLoading } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     
@@ -27,14 +29,12 @@ const ForgotPassword = () => {
       return;
     }
     
-    setLoading(true);
-    
-    // For demo purposes, simulate email sending
-    setTimeout(() => {
-      // In a real app, you would connect to your authentication service here
-      setLoading(false);
+    try {
+      await resetPassword(email);
       setSuccess(true);
-    }, 1500);
+    } catch (error: any) {
+      setError(error.message || "Failed to send reset password email");
+    }
   };
 
   return (
@@ -101,8 +101,8 @@ const ForgotPassword = () => {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Sending..." : "Send reset link"}
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "Sending..." : "Send reset link"}
               </Button>
 
               <div className="text-center">

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { 
@@ -17,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
+import { useAuth } from "@/contexts/AuthContext";
 
 const SignUp = () => {
   const [searchParams] = useSearchParams();
@@ -34,9 +34,9 @@ const SignUp = () => {
   
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState(0);
   
+  const { signUp, isLoading } = useAuth();
   const navigate = useNavigate();
 
   const updateFormData = (key: string, value: string | boolean) => {
@@ -100,7 +100,7 @@ const SignUp = () => {
     return true;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     
@@ -108,29 +108,27 @@ const SignUp = () => {
       return;
     }
     
-    setLoading(true);
-    
-    // For demo purposes, simulate account creation
-    setTimeout(() => {
-      // In a real app, you would connect to your authentication service here
-      navigate("/app");
-    }, 1500);
+    try {
+      await signUp(formData.email, formData.password, {
+        first_name: formData.firstName,
+        last_name: formData.lastName
+      });
+      
+      // Since we're using email confirmation, we'll show a message and redirect to login
+      navigate('/login');
+    } catch (error: any) {
+      setError(error.message || "An error occurred during signup");
+    }
   };
 
   const handleGoogleSignUp = () => {
-    // In a real app, you would implement Google OAuth here
-    setLoading(true);
-    setTimeout(() => {
-      navigate("/app");
-    }, 1000);
+    // To be implemented with Supabase OAuth
+    alert("Google signup will be implemented in the future");
   };
 
   const handleMicrosoftSignUp = () => {
-    // In a real app, you would implement Microsoft OAuth here
-    setLoading(true);
-    setTimeout(() => {
-      navigate("/app");
-    }, 1000);
+    // To be implemented with Supabase OAuth
+    alert("Microsoft signup will be implemented in the future");
   };
 
   return (
@@ -321,8 +319,8 @@ const SignUp = () => {
               </Label>
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Creating account..." : "Create account"}
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? "Creating account..." : "Create account"}
             </Button>
           </form>
 
@@ -341,7 +339,7 @@ const SignUp = () => {
                 type="button" 
                 variant="outline" 
                 onClick={handleGoogleSignUp}
-                disabled={loading}
+                disabled={isLoading}
               >
                 <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24">
                   <g transform="matrix(1, 0, 0, 1, 27.009001, -39.238998)">
@@ -357,7 +355,7 @@ const SignUp = () => {
                 type="button" 
                 variant="outline" 
                 onClick={handleMicrosoftSignUp}
-                disabled={loading}
+                disabled={isLoading}
               >
                 <svg className="h-5 w-5 mr-2" viewBox="0 0 23 23">
                   <path fill="#f3f3f3" d="M0 0h23v23H0z" />
