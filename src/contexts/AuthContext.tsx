@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, getStoragePaths } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 import { Tables } from '@/integrations/supabase/types';
 
@@ -16,6 +16,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updateProfile: (updates: Partial<Tables<'profiles'>>) => Promise<void>;
+  uploadProfileImage: (file: File) => Promise<string>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -45,6 +46,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Error in fetchProfile:', error);
       return null;
+    }
+  };
+
+  // Upload profile image
+  const uploadProfileImage = async (file: File): Promise<string> => {
+    if (!user) throw new Error('User must be logged in to upload profile image');
+    
+    try {
+      const paths = getStoragePaths(user.id);
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${paths.profileImages}/avatar.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('lender_documents')
+        .upload(filePath, file, {
+          upsert: true,
+          cacheControl: '3600',
+        });
+      
+      if (uploadError) throw uploadError;
+      
+      const { data: urlData } = supabase.storage
+        .from('lender_documents')
+        .getPublicUrl(filePath);
+      
+      // Update profile with new avatar URL
+      await updateProfile({ avatar_url: urlData.publicUrl });
+      
+      return urlData.publicUrl;
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error uploading profile image",
+        description: error.message,
+      });
+      throw error;
     }
   };
 
@@ -222,6 +259,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signOut,
     resetPassword,
     updateProfile,
+    uploadProfileImage,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
