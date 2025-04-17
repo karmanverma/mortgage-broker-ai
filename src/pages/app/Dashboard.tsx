@@ -1,4 +1,5 @@
-
+import React from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { 
   BarChart4, 
@@ -32,52 +33,81 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/components/ui/use-toast";
 
-// Mock data for dashboard
-const recentActivity = [
-  { 
-    id: 1, 
-    type: 'document', 
-    title: 'Rate sheet updated', 
-    lender: 'First National Bank', 
-    time: '10 minutes ago',
-    icon: <FileText className="h-4 w-4 text-blue-500" />
-  },
-  { 
-    id: 2, 
-    type: 'chat', 
-    title: 'AI Assistant conversation', 
-    topic: 'FHA loan requirements', 
-    time: '2 hours ago',
-    icon: <MessageSquare className="h-4 w-4 text-brand-500" />
-  },
-  { 
-    id: 3, 
-    type: 'lender', 
-    title: 'New lender added', 
-    lender: 'Homestead Mortgage', 
-    time: '1 day ago',
-    icon: <Building className="h-4 w-4 text-emerald-500" />
-  },
-  { 
-    id: 4, 
-    type: 'document', 
-    title: 'Document uploaded', 
-    document: 'Credit policy guide', 
-    lender: 'City Credit Union', 
-    time: '2 days ago',
-    icon: <FileText className="h-4 w-4 text-blue-500" />
-  },
-];
+const fetchLenders = async () => {
+  const { data, error } = await supabase
+    .from('lenders')
+    .select('*')
+    .limit(4);
+  
+  if (error) {
+    throw error;
+  }
+  return data;
+};
 
-const topLenders = [
-  { id: 1, name: 'First National Bank', type: 'Bank', status: 'Active', rate: '4.25%' },
-  { id: 2, name: 'Liberty Mortgage', type: 'Broker', status: 'Active', rate: '4.50%' },
-  { id: 3, name: 'Homestead Funding', type: 'Direct Lender', status: 'Active', rate: '4.35%' },
-  { id: 4, name: 'Community First CU', type: 'Credit Union', status: 'Active', rate: '4.30%' },
-];
+const fetchActivities = async () => {
+  const { data, error } = await supabase
+    .from('activities')
+    .select('*, lender:lenders(name), document:documents(name)')
+    .limit(4)
+    .order('created_at', { ascending: false });
+  
+  if (error) {
+    throw error;
+  }
+  return data;
+};
 
 const Dashboard = () => {
+  const { user } = useAuth();
+  
+  const {
+    data: lenders,
+    isLoading: isLoadingLenders,
+    error: lendersError,
+  } = useQuery({
+    queryKey: ['lenders'],
+    queryFn: fetchLenders,
+  });
+
+  const {
+    data: activities,
+    isLoading: isLoadingActivities,
+    error: activitiesError,
+  } = useQuery({
+    queryKey: ['activities'],
+    queryFn: fetchActivities,
+  });
+
+  React.useEffect(() => {
+    if (lendersError) {
+      toast({
+        variant: "destructive",
+        title: "Error fetching lenders",
+        description: lendersError.message,
+      });
+    }
+    if (activitiesError) {
+      toast({
+        variant: "destructive",
+        title: "Error fetching activities",
+        description: activitiesError.message,
+      });
+    }
+  }, [lendersError, activitiesError]);
+
+  if (isLoadingLenders || isLoadingActivities) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-600"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -94,7 +124,6 @@ const Dashboard = () => {
         </div>
       </div>
       
-      {/* Stats cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -102,9 +131,9 @@ const Dashboard = () => {
             <Building className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">42</div>
+            <div className="text-2xl font-bold">{lenders?.length || 0}</div>
             <p className="text-xs text-muted-foreground">
-              +3 from last month
+              Active lenders in your network
             </p>
           </CardContent>
         </Card>
@@ -153,29 +182,30 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Main dashboard content */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
-        {/* Recent activity feed */}
         <Card className="lg:col-span-4">
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
             <CardDescription>Your latest actions and updates</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {recentActivity.map((activity) => (
+            {activities?.map((activity: any) => (
               <div key={activity.id} className="flex items-start space-x-4 pb-4 border-b border-gray-100 last:border-0 last:pb-0">
                 <div className="h-9 w-9 rounded-full bg-gray-50 flex items-center justify-center">
-                  {activity.icon}
+                  {activity.action_type === 'document' && <FileText className="h-4 w-4 text-blue-500" />}
+                  {activity.action_type === 'chat' && <MessageSquare className="h-4 w-4 text-brand-500" />}
+                  {activity.action_type === 'lender' && <Building className="h-4 w-4 text-emerald-500" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium leading-none mb-1">{activity.title}</p>
+                  <p className="text-sm font-medium leading-none mb-1">{activity.description}</p>
                   <p className="text-sm text-gray-500 truncate">
-                    {activity.lender && <span>{activity.lender} · </span>}
-                    {activity.document && <span>{activity.document} · </span>}
-                    {activity.topic && <span>{activity.topic} · </span>}
+                    {activity.lender?.name && <span>{activity.lender.name} · </span>}
+                    {activity.document?.name && <span>{activity.document.name} · </span>}
                   </p>
                 </div>
-                <div className="text-xs text-gray-500">{activity.time}</div>
+                <div className="text-xs text-gray-500">
+                  {new Date(activity.created_at).toLocaleDateString()}
+                </div>
               </div>
             ))}
           </CardContent>
@@ -186,7 +216,6 @@ const Dashboard = () => {
           </CardFooter>
         </Card>
         
-        {/* Top lenders */}
         <Card className="lg:col-span-3">
           <CardHeader className="flex flex-row items-center">
             <div className="space-y-1.5">
@@ -199,7 +228,7 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
-              {topLenders.map((lender) => (
+              {lenders?.map((lender: any) => (
                 <div key={lender.id} className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <Avatar className="h-9 w-9">
@@ -213,7 +242,7 @@ const Dashboard = () => {
                   </div>
                   <div className="flex items-center space-x-3">
                     <Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-50 hover:text-green-700">
-                      {lender.rate}
+                      {lender.status}
                     </Badge>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -244,7 +273,6 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Quick actions */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="hover:bg-gray-50 transition-colors cursor-pointer">
           <Link to="/app/lenders" className="block p-6">
