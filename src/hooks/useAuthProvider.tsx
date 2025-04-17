@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Session } from '@supabase/supabase-js';
@@ -56,7 +55,6 @@ export function useAuthProvider() {
         .from('lender_documents')
         .getPublicUrl(filePath);
       
-      // Update profile with new avatar URL
       await updateProfile({ avatar_url: urlData.publicUrl });
       
       return urlData.publicUrl;
@@ -83,7 +81,6 @@ export function useAuthProvider() {
       
       if (error) throw error;
       
-      // Refetch profile to get updated data
       const updatedProfile = await fetchProfile(user.id);
       if (updatedProfile) setProfile(updatedProfile);
       
@@ -103,62 +100,73 @@ export function useAuthProvider() {
     }
   };
 
-  // Set up session management
+  // Set up session management with improved error handling
   useEffect(() => {
     console.log('Auth provider initializing');
     setIsLoading(true);
+
+    // First set up auth state listener to avoid missing events
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, newSession) => {
+        console.log('Auth state changed:', event, newSession ? 'Session exists' : 'No session');
+        
+        // Immediately update session and user state (synchronously)
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
+        
+        // For events requiring additional data fetching, use setTimeout
+        if (event === 'SIGNED_IN' && newSession?.user) {
+          setTimeout(() => {
+            fetchProfile(newSession.user.id)
+              .then(profileData => {
+                setProfile(profileData);
+                navigate('/app');
+              })
+              .catch(err => {
+                console.error('Error fetching profile after sign in:', err);
+              });
+          }, 0);
+        } else if (event === 'SIGNED_OUT') {
+          setProfile(null);
+          navigate('/login');
+        } else if (event === 'USER_UPDATED' && newSession?.user) {
+          setTimeout(() => {
+            fetchProfile(newSession.user.id)
+              .then(profileData => {
+                setProfile(profileData);
+              })
+              .catch(err => {
+                console.error('Error fetching profile after user update:', err);
+              });
+          }, 0);
+        }
+      }
+    );
     
-    // First check for existing session
-    const initializeAuth = async () => {
-      try {
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
+    // After setting up listener, check for existing session
+    supabase.auth.getSession()
+      .then(({ data: { session: currentSession } }) => {
         console.log('Initial session check:', currentSession ? 'Session found' : 'No session');
         
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         
         if (currentSession?.user) {
-          const profileData = await fetchProfile(currentSession.user.id);
+          return fetchProfile(currentSession.user.id);
+        }
+        return null;
+      })
+      .then(profileData => {
+        if (profileData) {
           setProfile(profileData);
         }
-      } catch (error) {
-        console.error('Error getting session:', error);
-      } finally {
+      })
+      .catch(error => {
+        console.error('Error during auth initialization:', error);
+      })
+      .finally(() => {
         setIsLoading(false);
-      }
-    };
-    
-    initializeAuth();
-    
-    // Set up the auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, newSession) => {
-        console.log('Auth state changed:', event, newSession ? 'Session exists' : 'No session');
-        
-        setSession(newSession);
-        setUser(newSession?.user ?? null);
-        
-        if (event === 'SIGNED_IN') {
-          if (newSession?.user) {
-            // Use setTimeout to prevent Supabase auth deadlock
-            setTimeout(async () => {
-              const profileData = await fetchProfile(newSession.user.id);
-              setProfile(profileData);
-              navigate('/app');
-            }, 0);
-          }
-        } else if (event === 'SIGNED_OUT') {
-          setProfile(null);
-          navigate('/login');
-        } else if (event === 'USER_UPDATED' && newSession?.user) {
-          // Use setTimeout to prevent Supabase auth deadlock
-          setTimeout(async () => {
-            const profileData = await fetchProfile(newSession.user.id);
-            setProfile(profileData);
-          }, 0);
-        }
-      }
-    );
+      });
 
     return () => {
       subscription.unsubscribe();
@@ -199,9 +207,10 @@ export function useAuthProvider() {
       console.log('Signing in with:', email);
       setIsLoading(true);
       
+      // Simplified sign-in without persisting session
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        password,
+        password
       });
 
       if (error) {
@@ -210,6 +219,7 @@ export function useAuthProvider() {
       }
       
       console.log('Sign in successful:', data.session ? 'Session created' : 'No session');
+      return data;
     } catch (error: any) {
       console.error('Sign in error caught:', error);
       toast({
