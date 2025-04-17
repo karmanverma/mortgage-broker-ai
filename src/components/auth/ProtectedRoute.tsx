@@ -9,12 +9,13 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { user, isLoading, profile } = useAuth();
+  const { user, isLoading, profile, session } = useAuth();
   const location = useLocation();
 
   useEffect(() => {
     // Check if user exists but profile is missing
     if (user && !profile && !isLoading) {
+      console.log('User exists but profile is missing');
       toast({
         variant: "destructive",
         title: "Profile Error",
@@ -22,6 +23,14 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
       });
     }
   }, [user, profile, isLoading]);
+
+  console.log('ProtectedRoute state:', { 
+    isAuthenticated: !!user, 
+    isLoading, 
+    hasProfile: !!profile,
+    hasSession: !!session,
+    path: location.pathname
+  });
 
   if (isLoading) {
     // Return a loading state while checking authentication
@@ -32,7 +41,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
-  if (!user) {
+  if (!user || !session) {
+    console.log('No authenticated user, redirecting to login');
     // Redirect to the login page if the user is not authenticated
     return <Navigate to="/login" state={{ from: location }} replace />;
   }

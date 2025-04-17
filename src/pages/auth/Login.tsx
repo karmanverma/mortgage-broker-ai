@@ -14,7 +14,6 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Login = () => {
@@ -23,6 +22,7 @@ const Login = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const { signIn, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -32,13 +32,20 @@ const Login = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    
     setError("");
+    setIsSubmitting(true);
 
     try {
+      console.log('Login form submitted, attempting to sign in');
       await signIn(email, password);
       // Auth state change will handle navigation to /app
     } catch (error: any) {
+      console.error('Login form error:', error);
       setError(error.message || "Failed to sign in. Please check your credentials.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -51,6 +58,9 @@ const Login = () => {
     // To be implemented with Supabase OAuth
     alert("Microsoft login will be implemented in the future");
   };
+
+  // Determine the actual loading state by combining internal and auth provider states
+  const formIsProcessing = isSubmitting || isLoading;
 
   return (
     <div className="min-h-screen flex flex-col justify-center items-center p-4 bg-gray-50">
@@ -91,6 +101,7 @@ const Login = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   className="pl-10"
                   required
+                  disabled={formIsProcessing}
                 />
               </div>
             </div>
@@ -114,6 +125,7 @@ const Login = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-10 pr-10"
                   required
+                  disabled={formIsProcessing}
                 />
                 <div className="absolute inset-y-0 right-0 flex items-center pr-3">
                   <Button
@@ -122,6 +134,7 @@ const Login = () => {
                     size="sm"
                     className="h-8 w-8 p-0"
                     onClick={() => setShowPassword(!showPassword)}
+                    disabled={formIsProcessing}
                   >
                     {showPassword ? (
                       <EyeOff className="h-4 w-4 text-gray-500" />
@@ -138,15 +151,25 @@ const Login = () => {
                 id="remember" 
                 checked={rememberMe}
                 onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                disabled={formIsProcessing}
               />
               <Label htmlFor="remember" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                 Remember me for 30 days
               </Label>
             </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Signing in..." : "Sign in"}
-              {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
+            <Button type="submit" className="w-full" disabled={formIsProcessing}>
+              {formIsProcessing ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                  Signing in...
+                </div>
+              ) : (
+                <>
+                  Sign in
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </>
+              )}
             </Button>
           </form>
 
@@ -165,7 +188,7 @@ const Login = () => {
                 type="button" 
                 variant="outline" 
                 onClick={handleGoogleLogin}
-                disabled={isLoading}
+                disabled={formIsProcessing}
               >
                 <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24">
                   <g transform="matrix(1, 0, 0, 1, 27.009001, -39.238998)">
@@ -181,7 +204,7 @@ const Login = () => {
                 type="button" 
                 variant="outline" 
                 onClick={handleMicrosoftLogin}
-                disabled={isLoading}
+                disabled={formIsProcessing}
               >
                 <svg className="h-5 w-5 mr-2" viewBox="0 0 23 23">
                   <path fill="#f3f3f3" d="M0 0h23v23H0z" />

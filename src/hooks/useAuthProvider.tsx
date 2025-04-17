@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase, getStoragePaths } from '@/integrations/supabase/client';
@@ -14,7 +14,7 @@ export function useAuthProvider() {
   const navigate = useNavigate();
 
   // Fetch user profile data
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = useCallback(async (userId: string) => {
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -32,7 +32,7 @@ export function useAuthProvider() {
       console.error('Error in fetchProfile:', error);
       return null;
     }
-  };
+  }, []);
 
   // Upload profile image
   const uploadProfileImage = async (file: File): Promise<string> => {
@@ -103,45 +103,67 @@ export function useAuthProvider() {
     }
   };
 
+  // Set up session management
   useEffect(() => {
-    // First set up the auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      // Fetch profile when auth state changes and user exists
-      if (session?.user) {
-        const profileData = await fetchProfile(session.user.id);
-        setProfile(profileData);
-      } else {
-        setProfile(null);
+    console.log('Auth provider initializing');
+    setIsLoading(true);
+    
+    // First check for existing session
+    const initializeAuth = async () => {
+      try {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        console.log('Initial session check:', currentSession ? 'Session found' : 'No session');
+        
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+        
+        if (currentSession?.user) {
+          const profileData = await fetchProfile(currentSession.user.id);
+          setProfile(profileData);
+        }
+      } catch (error) {
+        console.error('Error getting session:', error);
+      } finally {
+        setIsLoading(false);
       }
-      
-      if (event === 'SIGNED_IN') {
-        navigate('/app');
-      } else if (event === 'SIGNED_OUT') {
-        navigate('/login');
+    };
+    
+    initializeAuth();
+    
+    // Set up the auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, newSession) => {
+        console.log('Auth state changed:', event, newSession ? 'Session exists' : 'No session');
+        
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
+        
+        if (event === 'SIGNED_IN') {
+          if (newSession?.user) {
+            // Use setTimeout to prevent Supabase auth deadlock
+            setTimeout(async () => {
+              const profileData = await fetchProfile(newSession.user.id);
+              setProfile(profileData);
+              navigate('/app');
+            }, 0);
+          }
+        } else if (event === 'SIGNED_OUT') {
+          setProfile(null);
+          navigate('/login');
+        } else if (event === 'USER_UPDATED' && newSession?.user) {
+          // Use setTimeout to prevent Supabase auth deadlock
+          setTimeout(async () => {
+            const profileData = await fetchProfile(newSession.user.id);
+            setProfile(profileData);
+          }, 0);
+        }
       }
-    });
-
-    // Then check for existing session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      // Fetch profile for existing session
-      if (session?.user) {
-        const profileData = await fetchProfile(session.user.id);
-        setProfile(profileData);
-      }
-      
-      setIsLoading(false);
-    });
+    );
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [navigate, fetchProfile]);
 
   const signUp = async (email: string, password: string, metadata: { first_name: string; last_name: string; company_name?: string }) => {
     try {
@@ -174,14 +196,22 @@ export function useAuthProvider() {
 
   const signIn = async (email: string, password: string) => {
     try {
+      console.log('Signing in with:', email);
       setIsLoading(true);
-      const { error } = await supabase.auth.signInWithPassword({
+      
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Sign in error:', error);
+        throw error;
+      }
+      
+      console.log('Sign in successful:', data.session ? 'Session created' : 'No session');
     } catch (error: any) {
+      console.error('Sign in error caught:', error);
       toast({
         variant: "destructive",
         title: "Error signing in",
