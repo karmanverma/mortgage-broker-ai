@@ -12,6 +12,7 @@ export type Database = {
       activities: {
         Row: {
           action_type: string
+          client_id: string | null
           created_at: string
           description: string
           document_id: string | null
@@ -21,6 +22,7 @@ export type Database = {
         }
         Insert: {
           action_type: string
+          client_id?: string | null
           created_at?: string
           description: string
           document_id?: string | null
@@ -30,6 +32,7 @@ export type Database = {
         }
         Update: {
           action_type?: string
+          client_id?: string | null
           created_at?: string
           description?: string
           document_id?: string | null
@@ -38,6 +41,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "activities_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "activities_document_id_fkey"
             columns: ["document_id"]
@@ -54,8 +64,131 @@ export type Database = {
           },
         ]
       }
+      client_notes: {
+        Row: {
+          client_id: string
+          content: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          content: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_notes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clients: {
+        Row: {
+          address_line1: string | null
+          address_line2: string | null
+          annual_income: number | null
+          assets: Json | null
+          city: string | null
+          country: string | null
+          created_at: string
+          credit_score: number | null
+          date_of_birth: string | null
+          email: string
+          employer_name: string | null
+          employment_status: string | null
+          first_name: string
+          id: string
+          job_title: string | null
+          last_name: string
+          liabilities: Json | null
+          phone: string | null
+          state: string | null
+          updated_at: string
+          user_id: string
+          zip_code: string | null
+        }
+        Insert: {
+          address_line1?: string | null
+          address_line2?: string | null
+          annual_income?: number | null
+          assets?: Json | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          credit_score?: number | null
+          date_of_birth?: string | null
+          email: string
+          employer_name?: string | null
+          employment_status?: string | null
+          first_name: string
+          id?: string
+          job_title?: string | null
+          last_name: string
+          liabilities?: Json | null
+          phone?: string | null
+          state?: string | null
+          updated_at?: string
+          user_id: string
+          zip_code?: string | null
+        }
+        Update: {
+          address_line1?: string | null
+          address_line2?: string | null
+          annual_income?: number | null
+          assets?: Json | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          credit_score?: number | null
+          date_of_birth?: string | null
+          email?: string
+          employer_name?: string | null
+          employment_status?: string | null
+          first_name?: string
+          id?: string
+          job_title?: string | null
+          last_name?: string
+          liabilities?: Json | null
+          phone?: string | null
+          state?: string | null
+          updated_at?: string
+          user_id?: string
+          zip_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clients_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documents: {
         Row: {
+          client_id: string | null
           created_at: string
           description: string | null
           file_path: string
@@ -68,6 +201,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          client_id?: string | null
           created_at?: string
           description?: string | null
           file_path: string
@@ -80,6 +214,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          client_id?: string | null
           created_at?: string
           description?: string | null
           file_path?: string
@@ -92,6 +227,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "documents_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "documents_lender_id_fkey"
             columns: ["lender_id"]

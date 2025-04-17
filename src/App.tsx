@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -22,6 +21,10 @@ import Dashboard from "./pages/app/Dashboard";
 import Lenders from "./pages/app/Lenders";
 import AIAssistant from "./pages/app/AIAssistant";
 import Account from "./pages/app/Account";
+// Import Client Pages
+import ClientsPage from "./pages/app/clients/ClientsPage";
+import ClientDetailPage from "./pages/app/clients/ClientDetailPage";
+
 
 // Layout components
 import DashboardLayout from "./components/layouts/DashboardLayout";
@@ -32,8 +35,10 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
+      {/* SessionContextProvider is likely inside AuthProvider, remove from here */}
       <BrowserRouter>
-        <AuthProvider>
+        <AuthProvider> 
+          {/* AuthProvider should now handle Supabase client initialization and context */} 
           <Toaster />
           <Sonner />
           <Routes>
@@ -53,6 +58,9 @@ const App = () => (
               <Route path="lenders" element={<Lenders />} />
               <Route path="assistant" element={<AIAssistant />} />
               <Route path="account" element={<Account />} />
+              {/* Client Routes */}
+              <Route path="clients" element={<ClientsPage />} />
+              <Route path="clients/:clientId" element={<ClientDetailPage />} />
             </Route>
             
             {/* Catch-all route */}

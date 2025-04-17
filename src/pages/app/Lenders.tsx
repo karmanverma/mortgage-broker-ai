@@ -1,15 +1,18 @@
-
 import { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLenders } from "@/hooks/useLenders";
-import { useLenderDocuments } from "@/hooks/useLenderDocuments";
+import { useLenderDocuments } from "@/hooks/useLenderDocuments"; // Make sure fetchDocuments is exported/used if needed here
 
 // Import refactored components
 import { LenderSearch } from "@/components/lenders/LenderSearch";
 import { LendersList } from "@/components/lenders/LendersList";
 import { AddLenderForm } from "@/components/lenders/AddLenderForm";
 import { DocumentUploadDialog } from "@/components/lenders/DocumentUploadDialog";
+import { Tables } from "@/integrations/supabase/types";
+
+// Define Lender type explicitly
+type Lender = Tables<'lenders'>;
 
 // Lender type options
 const lenderTypes = ["Bank", "Broker", "Direct Lender", "Credit Union", "Correspondent", "Wholesale"];
@@ -25,25 +28,28 @@ const Lenders = () => {
   const [selectedLenders, setSelectedLenders] = useState<string[]>([]);
   const [isAddLenderOpen, setIsAddLenderOpen] = useState(false);
   const [isUploadDocumentOpen, setIsUploadDocumentOpen] = useState(false);
-  const [activeDocumentLender, setActiveDocumentLender] = useState<any>(null);
+  const [activeDocumentLender, setActiveDocumentLender] = useState<Lender | null>(null); // Use Lender type
 
   const { lenders, isLoading: lendersLoading, fetchLenders } = useLenders();
+  // Only need fetchDocuments from the hook for the upload dialog action
   const { fetchDocuments } = useLenderDocuments();
 
   // Fetch lenders on mount
   useEffect(() => {
+    console.log("Lenders.tsx: Fetching lenders...");
     fetchLenders();
-  }, []);
+    // Do not fetch all documents here
+  }, [fetchLenders]); // Only fetchLenders dependency
 
   // Filter lenders based on search and filters
   const filteredLenders = lenders.filter(lender => {
-    const matchesSearch = searchTerm === "" || 
-      lender.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lender.contact_name.toLowerCase().includes(searchTerm.toLowerCase());
-    
+    const matchesSearch = searchTerm === "" ||
+      (lender.name && lender.name.toLowerCase().includes(searchTerm.toLowerCase())) || // Added null check
+      (lender.contact_name && lender.contact_name.toLowerCase().includes(searchTerm.toLowerCase())); // Added null check
+
     const matchesType = selectedType === "" || lender.type === selectedType;
     const matchesStatus = selectedStatus === "" || lender.status === selectedStatus;
-    
+
     return matchesSearch && matchesType && matchesStatus;
   });
 
@@ -73,11 +79,17 @@ const Lenders = () => {
   };
 
   // Handle opening the document upload dialog
-  const handleOpenDocumentUpload = (lender: any) => {
+  const handleOpenDocumentUpload = (lender: Lender) => { // Use Lender type
+    console.log(`Lenders.tsx: Opening document upload for lender ID: ${lender.id}`);
     setActiveDocumentLender(lender);
-    fetchDocuments(lender.id);
+    // Optionally fetch documents specifically for this lender when opening the dialog
+    // This depends on whether the dialog needs the documents immediately
+    // fetchDocuments(lender.id);
     setIsUploadDocumentOpen(true);
   };
+
+  // Determine loading state (only lenders now)
+  const isLoading = lendersLoading;
 
   return (
     <div className="space-y-6">
@@ -105,6 +117,7 @@ const Lenders = () => {
       {/* Lenders list */}
       <LendersList
         filteredLenders={filteredLenders}
+        // Do not pass documents down
         view={view}
         setView={setView}
         selectedLenders={selectedLenders}
@@ -116,11 +129,11 @@ const Lenders = () => {
         searchTerm={searchTerm}
         selectedType={selectedType}
         selectedStatus={selectedStatus}
-        isLoading={lendersLoading}
+        isLoading={isLoading} // Pass original loading state
       />
 
       {/* Dialogs */}
-      <AddLenderForm 
+      <AddLenderForm
         isOpen={isAddLenderOpen}
         onClose={() => setIsAddLenderOpen(false)}
         lenderTypes={lenderTypes}
@@ -131,6 +144,7 @@ const Lenders = () => {
         isOpen={isUploadDocumentOpen}
         onClose={() => setIsUploadDocumentOpen(false)}
         lender={activeDocumentLender}
+        // DocumentUploadDialog likely uses the useLenderDocuments hook internally now
       />
     </div>
   );
