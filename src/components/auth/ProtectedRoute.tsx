@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/components/ui/use-toast';
@@ -18,6 +18,16 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     hasSession: !!session,
     path: location.pathname
   });
+
+  useEffect(() => {
+    if (!isLoading && (!user || !session)) {
+      toast({
+        variant: "destructive",
+        title: "Authentication Required",
+        description: "Please sign in to access this page."
+      });
+    }
+  }, [isLoading, user, session]);
 
   // Show loading spinner only for a short period to prevent getting stuck
   if (isLoading) {
