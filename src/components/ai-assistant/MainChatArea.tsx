@@ -1,8 +1,7 @@
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Send, Loader2, Menu } from "lucide-react";
@@ -37,7 +36,7 @@ interface MainChatAreaProps {
     onSaveAsPdf: () => void;
     onCopyToClipboard: () => void;
     onPrint: () => void;
-    messageSuggestions: string[];
+    messageSuggestions?: string[];
 }
 
 const MainChatArea: React.FC<MainChatAreaProps> = ({
@@ -73,13 +72,17 @@ const MainChatArea: React.FC<MainChatAreaProps> = ({
                         </Button>
                         <h2 className="text-lg font-semibold">{currentSessionId ? `Chat Session: ${currentSessionId.substring(0, 8)}` : 'New Chat'}</h2>
                     </div>
-                    <div className="flex items-center space-x-2">
-                        <Button variant="outline" size="sm" onClick={onDeleteConversation}>Delete Chat</Button>
-                        <Button variant="outline" size="sm" onClick={onSaveAsPdf}>Save as PDF</Button>
-                        <Button variant="outline" size="sm" onClick={onCopyToClipboard}>Copy to Clipboard</Button>
-                        <Button variant="outline" size="sm" onClick={onPrint}>Print</Button>
-                        <Button variant="ghost" size="icon" onClick={() => setContextPanelOpen(!contextPanelOpen)}>
-                            {contextPanelOpen ? <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M3 6a3 3 0 013-3h12a3 3 0 013 3v12a3 3 0 01-3 3H6a3 3 0 01-3-3V6zm12 1.5a.75.75 0 00-.75.75v3a.75.75 0 001.5 0v-3a.75.75 0 00-.75-.75zM8.25 7.5a.75.75 0 01.75-.75h.008a.75.75 0 01.75.75v8.25a.75.75 0 01-.75.75h-.008a.75.75 0 01-.75-.75V7.5zM6 12a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zm9 1.5a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0z" clipRule="evenodd" /></svg> : <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M3 6a3 3 0 013-3h12a3 3 0 013 3v12a3 3 0 01-3 3H6a3 3 0 01-3-3V6zM6 4.5A1.5 1.5 0 004.5 6v12a1.5 1.5 0 001.5 1.5h12a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H6zm7.5 1.5a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75zM8.25 7.5a.75.75 0 00-.75.75v8.25a.75.75 0 001.5 0V8.25a.75.75 0 00-.75-.75zM6 12a1.5 1.5 0 103 0 1.5 1.5 0 00-3 0zm9 1.5a1.5 1.5 0 103 0 1.5 1.5 0 00-3 0z" /></svg>}
+                    <div className="flex items-center space-x-2 overflow-x-auto">
+                        <Button variant="outline" size="sm" onClick={onDeleteConversation} className="whitespace-nowrap">Delete Chat</Button>
+                        <Button variant="outline" size="sm" onClick={onSaveAsPdf} className="whitespace-nowrap hidden sm:inline-flex">Save as PDF</Button>
+                        <Button variant="outline" size="sm" onClick={onCopyToClipboard} className="whitespace-nowrap hidden sm:inline-flex">Copy</Button>
+                        <Button variant="outline" size="sm" onClick={onPrint} className="whitespace-nowrap hidden sm:inline-flex">Print</Button>
+                        <Button variant="ghost" size="icon" onClick={() => setContextPanelOpen(!contextPanelOpen)} className="flex-shrink-0">
+                            {contextPanelOpen ? 
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M3 6a3 3 0 013-3h12a3 3 0 013 3v12a3 3 0 01-3 3H6a3 3 0 01-3-3V6zm12 1.5a.75.75 0 00-.75.75v3a.75.75 0 001.5 0v-3a.75.75 0 00-.75-.75zM8.25 7.5a.75.75 0 01.75-.75h.008a.75.75 0 01.75.75v8.25a.75.75 0 01-.75.75h-.008a.75.75 0 01-.75-.75V7.5zM6 12a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zm9 1.5a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0z" clipRule="evenodd" /></svg>
+                                : 
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M3 6a3 3 0 013-3h12a3 3 0 013 3v12a3 3 0 01-3 3H6a3 3 0 01-3-3V6zM6 4.5A1.5 1.5 0 004.5 6v12a1.5 1.5 0 001.5 1.5h12a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H6zm7.5 1.5a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75zM8.25 7.5a.75.75 0 00-.75.75v8.25a.75.75 0 001.5 0V8.25a.75.75 0 00-.75-.75zM6 12a1.5 1.5 0 103 0 1.5 1.5 0 00-3 0zm9 1.5a1.5 1.5 0 103 0 1.5 1.5 0 00-3 0z" /></svg>
+                            }
                         </Button>
                     </div>
                 </div>
@@ -103,21 +106,23 @@ const MainChatArea: React.FC<MainChatAreaProps> = ({
             </ScrollArea>
             
             {/* Message suggestions */}
-            <div className="px-4 py-2 border-t bg-gray-50">
-                <div className="flex gap-2 overflow-x-auto pb-2">
-                    {messageSuggestions && messageSuggestions.map((suggestion, index) => (
-                        <Button
-                            key={index}
-                            variant="outline"
-                            size="sm"
-                            className="whitespace-nowrap"
-                            onClick={() => setNewMessage(suggestion)}
-                        >
-                            {suggestion}
-                        </Button>
-                    ))}
+            {messageSuggestions && messageSuggestions.length > 0 && (
+                <div className="px-4 py-2 border-t bg-gray-50">
+                    <div className="flex gap-2 overflow-x-auto pb-2">
+                        {messageSuggestions.map((suggestion, index) => (
+                            <Button
+                                key={index}
+                                variant="outline"
+                                size="sm"
+                                className="whitespace-nowrap"
+                                onClick={() => setNewMessage(suggestion)}
+                            >
+                                {suggestion}
+                            </Button>
+                        ))}
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Input area with fixed positioning */}
             <div className="border-t bg-white p-4">

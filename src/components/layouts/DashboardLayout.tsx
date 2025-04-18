@@ -13,7 +13,7 @@ const DashboardLayout = () => {
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
   return (
-    <div className="bg-gray-50 flex min-h-screen">
+    <div className="bg-gray-50 flex h-screen overflow-hidden">
 
       {/* Mobile Sidebar (Overlay) */}
       <div
@@ -46,14 +46,14 @@ const DashboardLayout = () => {
 
       {/* Main Content Area */} 
       <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${sidebarOpen ? 'lg:pl-64' : 'lg:pl-0'}`}>
-         {/* Header - Remove className prop since it's not defined in HeaderProps */} 
+         {/* Header */} 
          <Header
            toggleSidebar={toggleSidebar}
            sidebarOpen={sidebarOpen}
            toggleMobileMenu={toggleMobileMenu}
          />
-         {/* Content Area - Should handle its own scrolling if needed */}
-         <main className="flex-1 p-4 lg:p-6 bg-gray-50/95 backdrop-blur-sm border-b border-gray-200">
+         {/* Content Area - Fill available height */}
+         <main className="flex-1 overflow-hidden bg-gray-50/95 backdrop-blur-sm">
            <Outlet />
          </main>
       </div>

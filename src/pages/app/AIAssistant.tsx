@@ -16,6 +16,9 @@ interface Message {
   sender: 'user' | 'ai';
   message: string;
   created_at: string;
+  id?: number;
+  session_id?: string;
+  user_id?: string;
 }
 
 const AIAssistantPage: React.FC = () => {
@@ -39,7 +42,10 @@ const AIAssistantPage: React.FC = () => {
   const messages: Message[] = (apiMessages || []).map(msg => ({
     sender: msg.sender as 'user' | 'ai', // Type assertion to ensure it matches the Message type
     message: msg.message,
-    created_at: msg.created_at
+    created_at: msg.created_at,
+    id: msg.id,
+    session_id: msg.session_id,
+    user_id: msg.user_id
   }));
 
   const [newMessage, setNewMessage] = useState("");
@@ -123,14 +129,14 @@ const AIAssistantPage: React.FC = () => {
         return;
     }
 
-    const currentHistory = [...messages, savedUserMessage];
+    const currentHistory = [...apiMessages, savedUserMessage];
     const aiResponseContent = await getAIResponse(userMessageContent, currentHistory);
     if (aiResponseContent) {
         await addMessage(aiResponseContent, 'ai');
     }
     setIsWaitingForAI(false);
     textareaRef.current?.focus();
-  }, [newMessage, user, currentSessionId, isWaitingForAI, addMessage, getAIResponse, messages]);
+  }, [newMessage, user, currentSessionId, isWaitingForAI, addMessage, getAIResponse, apiMessages]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -195,62 +201,71 @@ ${msg.message}`;
   }, []);
 
   return (
-    <div className="flex h-full bg-white overflow-hidden">
-      <div className={cn(`fixed inset-y-0 left-0 z-40 w-72 border-r bg-white transform transition-transform md:hidden`, conversationSidebarOpen ? "translate-x-0" : "-translate-x-full")}>
-         <ConversationSidebar
-            conversationList={conversationList}
-            isLoadingList={isLoadingList}
-            activeSessionId={currentSessionId}
-            setActiveConversation={setActiveConversation}
-            onNewConversation={handleNewConversationClick}
-            setConversationSidebarOpen={setConversationSidebarOpen}
-         />
-      </div>
-      {conversationSidebarOpen && <div className="fixed inset-0 z-30 bg-black/50 md:hidden" onClick={() => setConversationSidebarOpen(false)} />}
-      <div className="w-72 border-r border-gray-200 hidden md:flex flex-col flex-shrink-0">
-        <ConversationSidebar
-            conversationList={conversationList}
-            isLoadingList={isLoadingList}
-            activeSessionId={currentSessionId}
-            setActiveConversation={setActiveConversation}
-            onNewConversation={handleNewConversationClick}
-            setConversationSidebarOpen={setConversationSidebarOpen}
-         />
-      </div>
+    <div className="h-full flex flex-col bg-white overflow-hidden">
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar overlay for mobile */}
+        {conversationSidebarOpen && <div className="fixed inset-0 z-30 bg-black/50 md:hidden" onClick={() => setConversationSidebarOpen(false)} />}
+        
+        {/* Mobile sidebar - fixed positioning */}
+        <div className={cn(`fixed inset-y-0 left-0 z-40 w-72 border-r bg-white transform transition-transform duration-300 md:hidden`, conversationSidebarOpen ? "translate-x-0" : "-translate-x-full")}>
+           <ConversationSidebar
+              conversationList={conversationList}
+              isLoadingList={isLoadingList}
+              activeSessionId={currentSessionId}
+              setActiveConversation={setActiveConversation}
+              onNewConversation={handleNewConversationClick}
+              setConversationSidebarOpen={setConversationSidebarOpen}
+           />
+        </div>
+        
+        {/* Desktop sidebar - always visible */}
+        <div className="w-72 border-r border-gray-200 hidden md:flex flex-col flex-shrink-0">
+          <ConversationSidebar
+              conversationList={conversationList}
+              isLoadingList={isLoadingList}
+              activeSessionId={currentSessionId}
+              setActiveConversation={setActiveConversation}
+              onNewConversation={handleNewConversationClick}
+              setConversationSidebarOpen={setConversationSidebarOpen}
+           />
+        </div>
 
-      <div className="flex-1 flex min-w-0 overflow-hidden">
-        <MainChatArea
-          messages={messages}
-          isLoadingHistory={isLoadingHistory}
-          conversationError={conversationError}
-          currentSessionId={currentSessionId}
-          isWaitingForAI={isWaitingForAI}
-          user={user}
-          messagesEndRef={messagesEndRef}
-          textareaRef={textareaRef}
-          newMessage={newMessage}
-          setNewMessage={setNewMessage}
-          handleSendMessage={handleSendMessage}
-          handleKeyDown={handleKeyDown}
-          setConversationSidebarOpen={setConversationSidebarOpen}
-          fetchMessages={fetchMessages}
-          setContextPanelOpen={setContextPanelOpen}
-          contextPanelOpen={contextPanelOpen}
-          onDeleteConversation={handleDeleteConversation}
-          onSaveAsPdf={handleSaveAsPdf}
-          onCopyToClipboard={handleCopyToClipboard}
-          onPrint={handlePrint}
-          messageSuggestions={messageSuggestions}
-        />
-        <ContextPanel
-          contextPanelOpen={contextPanelOpen}
-          setContextPanelOpen={setContextPanelOpen}
-          onContextChange={setMessageContext}
-        />
+        {/* Main content area */}
+        <div className="flex-1 flex min-w-0 overflow-hidden">
+          <MainChatArea
+            messages={messages}
+            isLoadingHistory={isLoadingHistory}
+            conversationError={conversationError}
+            currentSessionId={currentSessionId}
+            isWaitingForAI={isWaitingForAI}
+            user={user}
+            messagesEndRef={messagesEndRef}
+            textareaRef={textareaRef}
+            newMessage={newMessage}
+            setNewMessage={setNewMessage}
+            handleSendMessage={handleSendMessage}
+            handleKeyDown={handleKeyDown}
+            setConversationSidebarOpen={setConversationSidebarOpen}
+            fetchMessages={fetchMessages}
+            setContextPanelOpen={setContextPanelOpen}
+            contextPanelOpen={contextPanelOpen}
+            onDeleteConversation={handleDeleteConversation}
+            onSaveAsPdf={handleSaveAsPdf}
+            onCopyToClipboard={handleCopyToClipboard}
+            onPrint={handlePrint}
+            messageSuggestions={messageSuggestions}
+          />
+          
+          {/* Context panel on right side */}
+          <ContextPanel
+            contextPanelOpen={contextPanelOpen}
+            setContextPanelOpen={setContextPanelOpen}
+            onContextChange={setMessageContext}
+          />
+        </div>
       </div>
     </div>
   );
 };
 
 export default AIAssistantPage;
-
