@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -45,6 +44,13 @@ type ClientNote = Tables<"client_notes">;
 type ClientDocument = Tables<"documents"> & { client_id: string }; // Assuming documents will be filtered by client_id
 type ClientActivity = Tables<"activities"> & { client_id: string }; // Assuming activities will be filtered by client_id
 
+// Define specific types for each tab's data prop
+type PersonalInfoTabData = DbClient;
+type FinancialDetailsTabData = DbClient;
+type DocumentsTabData = ClientDocument[];
+type NotesTabData = { notes: ClientNote[], clientId: string, userId: string | undefined };
+type ActivityLogTabData = ClientActivity[];
+
 // Helper function to format currency (handle null/undefined)
 const formatCurrency = (amount: number | null | undefined) => {
   if (amount == null) return 'N/A';
@@ -87,6 +93,17 @@ const DetailItem = ({ icon: Icon, label, value }: { icon: React.ElementType, lab
     </div>
   </div>
 );
+
+// Define a type for the tab items to ensure proper typing
+interface TabItem {
+  id: string;
+  label: string;
+  icon: React.ElementType;
+  component: React.FC<any>; // We'll handle type checking elsewhere
+  title: string;
+  description: string;
+  data: any; // This will be typed properly when we assign values
+}
 
 const ClientDetailPage = () => {
   const { clientId } = useParams<{ clientId: string }>();
@@ -220,52 +237,52 @@ const ClientDetailPage = () => {
       );
   }
 
-  // Define Tab structure using data
-  const navItems = [
+  // Define Tab structure with appropriate data typing
+  const navItems: TabItem[] = [
     {
       id: 'personal',
       label: 'Personal Info',
       icon: User,
-      component: PersonalInfoTab,
+      component: PersonalInfoTab as React.FC<{data: PersonalInfoTabData}>,
       title: "Personal Information",
       description: "View and manage personal details.",
-      data: dbClient // Pass the raw DB client data that the components expect
+      data: dbClient as PersonalInfoTabData
     },
     {
       id: 'financial',
       label: 'Financial Details',
       icon: DollarSign,
-      component: FinancialDetailsTab,
+      component: FinancialDetailsTab as React.FC<{data: FinancialDetailsTabData}>,
       title: "Financial Details",
       description: "View and manage financial information.",
-      data: dbClient // Pass the raw DB client data that the components expect
+      data: dbClient as FinancialDetailsTabData
     },
     {
       id: 'documents',
       label: 'Documents',
       icon: FileText,
-      component: DocumentsTab,
+      component: DocumentsTab as React.FC<{data: DocumentsTabData}>,
       title: "Document Management",
       description: "Upload, view, and manage required client documents.",
-      data: documents // Pass the fetched documents array
+      data: documents as DocumentsTabData
     },
     {
       id: 'notes',
       label: 'Notes',
       icon: ClipboardList,
-      component: NotesTab,
+      component: NotesTab as React.FC<{data: NotesTabData}>,
       title: "Client Notes",
       description: "Add and review notes specific to this client.",
-      data: { notes: notes, clientId: dbClient.id, userId: user?.id } // Pass notes array and IDs
+      data: { notes: notes, clientId: dbClient.id, userId: user?.id } as NotesTabData
     },
     {
       id: 'activity',
       label: 'Activity Log',
       icon: Activity,
-      component: ActivityLogTab,
+      component: ActivityLogTab as React.FC<{data: ActivityLogTabData}>,
       title: "Activity Log",
       description: "Track recent activities and interactions.",
-      data: activities // Pass the fetched activities array
+      data: activities as ActivityLogTabData
     },
   ];
 

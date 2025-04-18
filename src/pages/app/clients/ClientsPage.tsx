@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -25,13 +26,13 @@ import {
 import ClientList from '@/components/clients/ClientList';
 import AddClientForm from '@/components/clients/AddClientForm';
 // Use the generated types and our mapping functions
-import { Client, mapDbClientToClient, mapClientToDbClient } from '@/features/clients/types';
+import { Client, mapDbClientToClient, mapClientToDbClient, ClientFormData } from '@/features/clients/types';
 import { Tables, TablesInsert } from '@/integrations/supabase/types'; 
 import { useToast } from '@/components/ui/use-toast';
 import { z } from 'zod';
 
 // Define Client form data based on Supabase Tables Insert (adjust as needed for form)
-type ClientFormData = Omit<TablesInsert<"clients">, 'id' | 'user_id' | 'created_at' | 'updated_at'>; 
+// type ClientFormData = Omit<TablesInsert<"clients">, 'id' | 'user_id' | 'created_at' | 'updated_at'>; 
 
 // Example options (replace or augment with data/enums if needed)
 const loanTypeOptions = ['Conventional', 'FHA', 'VA', 'USDA', 'Jumbo'];
@@ -131,7 +132,17 @@ const ClientsPage = () => {
     }
     
     // Map client data to DB format before inserting
-    const clientToInsert = mapClientToDbClient(newClientData as any, user.id);
+    const clientToInsert = mapClientToDbClient(newClientData, user.id);
+    
+    // Ensure email is always provided as it's required in the database
+    if (!clientToInsert.email) {
+      toast({ 
+        title: 'Validation Error', 
+        description: 'Email is required.',
+        variant: 'destructive'
+      });
+      return;
+    }
 
     supabase
       .from('clients')

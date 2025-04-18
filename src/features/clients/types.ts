@@ -102,11 +102,12 @@ export const mapDbClientToClient = (dbClient: Tables<"clients">): Client => {
 };
 
 // Add a utility function to map from our frontend format to Supabase DB format
-export const mapClientToDbClient = (client: ClientFormData, userId: string): Partial<Tables<"clients">> => {
+export const mapClientToDbClient = (client: ClientFormData, userId: string): TablesInsert<"clients"> => {
+  // Ensure we're providing required fields for the database insert
   return {
     first_name: client.firstName,
     last_name: client.lastName,
-    email: client.email,
+    email: client.email, // This is required by the database
     phone: client.phone,
     address_line1: client.streetAddress,
     city: client.city,
