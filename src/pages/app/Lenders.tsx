@@ -7,7 +7,7 @@ import { useLenders } from "@/hooks/useLenders";
 import { LenderSearch } from "@/components/lenders/LenderSearch";
 import { LendersList } from "@/components/lenders/LendersList";
 import { AddLenderForm } from "@/components/lenders/AddLenderForm";
-import { ManageDocumentsDialog } from "@/components/lenders/ManageDocumentsDialog"; // Corrected: Named import
+import ManageDocumentsDialog from "@/components/lenders/ManageDocumentsDialog"; // Corrected: Default import
 import { Tables } from "@/integrations/supabase/types";
 
 type Lender = Tables<'lenders'>;

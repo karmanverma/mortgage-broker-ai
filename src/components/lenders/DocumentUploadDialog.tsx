@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-// import { useLenderDocuments } from '@/hooks/useLenderDocuments'; // Keep commented if not used locally after upload
+import { useAuth } from '@/contexts/AuthContext'; // Import the auth hook
 
 // Define the Lender type based on your application structure
 interface Lender {
@@ -24,6 +24,7 @@ const DocumentUploadDialog: React.FC<DocumentUploadDialogProps> = ({ isOpen, onC
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth(); // Get user from auth context
   // const { addDocument } = useLenderDocuments(); // If you need to refresh the list after upload
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -35,9 +36,21 @@ const DocumentUploadDialog: React.FC<DocumentUploadDialogProps> = ({ isOpen, onC
   const handleUpload = async () => {
     if (!selectedFile || !lender) return;
 
+    if (!user) {
+      console.error("User not authenticated");
+      toast({
+        title: "Error",
+        description: "You must be logged in to upload documents.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+
     setIsUploading(true);
     const fileExt = selectedFile.name.split('.').pop();
-    const filePath = `${lender.id}/${Date.now()}.${fileExt}`; // Unique path per lender
+    // Ensure user ID is included in the path for potential RLS policies or easier filtering
+    const filePath = `${user.id}/${lender.id}/${Date.now()}.${fileExt}`;
 
     try {
       // 1. Upload file to Supabase Storage
@@ -52,8 +65,7 @@ const DocumentUploadDialog: React.FC<DocumentUploadDialogProps> = ({ isOpen, onC
       }
       console.log('File uploaded successfully to path:', filePath);
 
-      // 2. Add document metadata to the database (Optional but common)
-      // If you have a documents table to track uploads
+      // 2. Add document metadata to the database
       console.log('Inserting document metadata into database...');
       const { data: newDocument, error: insertError } = await supabase
         .from('documents') // Ensure 'documents' is your table name
@@ -62,7 +74,7 @@ const DocumentUploadDialog: React.FC<DocumentUploadDialogProps> = ({ isOpen, onC
           file_path: filePath,
           file_name: selectedFile.name,
           file_type: selectedFile.type,
-          // user_id: // Add if you track which user uploaded
+          user_id: user.id, // Add the user ID here
         })
         .select()
         .single();
@@ -85,7 +97,7 @@ const DocumentUploadDialog: React.FC<DocumentUploadDialogProps> = ({ isOpen, onC
 
       toast({
         title: 'Success',
-        description: `Document "${selectedFile.name}" uploaded successfully.`,
+        description: `Document "${selectedFile.name}" uploaded successfully.`
       });
       setSelectedFile(null); // Reset file input
       onClose(); // Close the dialog

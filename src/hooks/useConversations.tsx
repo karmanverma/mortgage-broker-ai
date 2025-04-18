@@ -20,19 +20,22 @@ export function useConversations() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [messageError, setMessageError] = useState<string | null>(null);
 
+  // --- New state to trigger message refetch ---
+  const [messageUpdateTrigger, setMessageUpdateTrigger] = useState(0);
+
   // Fetch the list of unique conversation sessions
   const fetchConversationList = useCallback(async () => {
     if (!user) return;
     setLoadingList(true);
     setListError(null);
-    console.log("useConversations: Fetching conversation list for user:", user.id);
+    // console.log("useConversations: Fetching conversation list for user:", user.id);
     try {
       const { data, error } = await supabase
         .rpc('get_latest_conversations_per_session', { user_uuid: user.id });
 
       if (error) throw error;
 
-      console.log("useConversations: Fetched unique conversation list data:", data);
+      // console.log("useConversations: Fetched unique conversation list data:", data);
       setConversationList(data as Conversation[] || []);
 
     } catch (err: any) {
@@ -69,7 +72,7 @@ export function useConversations() {
       if (error) throw error;
 
       console.log(`useConversations: Fetched ${data?.length} messages for session ${sessionId}`);
-      setMessages(data || []);
+      setMessages(data || []); // Update messages state with fetched data
     } catch (err: any) {
       console.error(`useConversations: Error fetching messages for session ${sessionId}:`, err);
       setMessageError(err.message || 'Failed to fetch messages');
@@ -89,22 +92,23 @@ export function useConversations() {
     fetchConversationList();
   }, [fetchConversationList]);
 
-  // Effect to fetch messages when the active session changes
+  // --- Effect to fetch messages when active session changes OR message trigger fires ---
   useEffect(() => {
       if (currentSessionId) {
-        console.log(`useConversations: Active session changed to ${currentSessionId}, fetching messages...`);
+        console.log(`useConversations: Active session changed or trigger fired for ${currentSessionId}, fetching messages...`);
         fetchMessages(currentSessionId);
       } else {
         console.log("useConversations: No active session, clearing messages.");
         setMessages([]);
       }
-  }, [currentSessionId, fetchMessages]);
+  // Watch both currentSessionId and the trigger
+  }, [currentSessionId, messageUpdateTrigger, fetchMessages]); 
 
   // Add a message to the active or specified session
   const addMessage = async (
     messageContent: string,
     senderType: 'user' | 'ai',
-    sessionId: string // Explicitly require session ID
+    sessionId: string
   ): Promise<Conversation | null> => {
     if (!user || !sessionId) {
       toast({ variant: "destructive", title: "Error", description: "Cannot send message: User or Session ID missing." });
@@ -114,7 +118,7 @@ export function useConversations() {
     try {
       const newMessage: Omit<Conversation, 'id' | 'created_at'> = {
         user_id: user.id,
-        session_id: sessionId, // Use the provided session ID
+        session_id: sessionId,
         message: messageContent,
         sender: senderType,
       };
@@ -128,30 +132,38 @@ export function useConversations() {
       if (error) throw error;
 
       if (data) {
-        console.log(`useConversations: Message added successfully to session ${sessionId}:`, data);
-        // Update messages only if the message belongs to the currently active session
+        console.log(`useConversations: Message added successfully to DB for session ${sessionId}:`, data);
+        
+        // --- Restore Optimistic Update for responsiveness ---
         if (sessionId === currentSessionId) {
+          console.log(`useConversations: Optimistically adding message ${data.id} to UI.`);
           setMessages(prevMessages => [...prevMessages, data as Conversation]);
         }
 
-        // Update the conversation list: Add if new, update timestamp if existing
+        // Update the conversation list
         setConversationList(prevList => {
             const existingConvIndex = prevList.findIndex(conv => conv.session_id === sessionId);
-            let newList: Conversation[]; // <-- Corrected type annotation
+            let newList: Conversation[];
             if (existingConvIndex > -1) {
-                // Update existing conversation's timestamp
                 newList = prevList.map((conv, index) =>
                     index === existingConvIndex ? { ...conv, created_at: data.created_at, message: data.message, sender: data.sender } : conv
                 );
             } else {
-                // Add new conversation (this happens when the first message is saved)
                 newList = [...prevList, data as Conversation];
             }
-            // Remove temporary placeholder if it exists
-            newList = newList.filter(conv => !String(conv.id).startsWith('temp-')); // <-- Applied fix here
-            // Sort by the latest message timestamp
+            newList = newList.filter(conv => !String(conv.id).startsWith('temp-'));
             return newList.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         });
+
+        // --- Remove explicit fetchMessages call ---
+        // if (sessionId === currentSessionId) {
+        //    console.log(`useConversations: Refetching messages for active session ${sessionId} after adding new message.`);
+        //    await fetchMessages(sessionId); 
+        // }
+
+        // --- Increment trigger AFTER successful insertion and list update ---
+        setMessageUpdateTrigger(prev => prev + 1);
+        console.log(`useConversations: Incremented messageUpdateTrigger.`);
 
         return data as Conversation;
       }
@@ -175,31 +187,22 @@ export function useConversations() {
         console.log("useConversations: Starting new conversation...");
         try {
             const newSessionId = uuidv4();
-
-            // Create a temporary representation for the sidebar
              const tempNewConv: Conversation = {
-                 id: `temp-${newSessionId}`, // Use a temporary, distinguishable ID
+                 id: `temp-${newSessionId}`,
                  user_id: user.id,
                  created_at: new Date().toISOString(),
                  session_id: newSessionId,
-                 message: "New Chat Started...", // Placeholder message
+                 message: "New Chat Started...",
                  sender: undefined,
              };
 
-            // Add to list optimistically & sort
             setConversationList(prev => [tempNewConv, ...prev]
                 .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
 
-            setCurrentSessionId(newSessionId); // Set the new session as active
-             setMessages([]); // Clear messages for the new session
-             setMessageError(null); // Clear any previous message errors
-             setLoadingMessages(false); // Ensure loading is false for the new empty session
+            setCurrentSessionId(newSessionId); // This will trigger the useEffect to clear/fetch messages
 
             console.log("useConversations: New conversation started locally with session ID:", newSessionId);
-            // --- TOAST REMOVED --- 
-
-             // Return the temporary conversation object; it will be updated when the first message is added
-             return tempNewConv;
+            return tempNewConv;
 
         } catch (err: any) {
             console.error("useConversations: Error starting new conversation:", err);
@@ -210,8 +213,6 @@ export function useConversations() {
             });
             setListError(err.message || 'Failed to start conversation');
             return null;
-        } finally {
-            // Reset specific loading state if used
         }
     };
 
@@ -236,17 +237,14 @@ export function useConversations() {
 
       console.log(`useConversations: Conversation session ${sessionId} deleted successfully from DB.`);
 
-      // Update state: remove the conversation from the list
       setConversationList(prevList =>
         prevList.filter(conv => conv.session_id !== sessionId)
       );
 
-      // If the deleted conversation was the active one, clear active state
       if (currentSessionId === sessionId) {
-        setCurrentSessionId(null);
-        setMessages([]);
-        setMessageError(null);
+        setCurrentSessionId(null); // This triggers useEffect to clear messages
       }
+      // No need to manually trigger refetch here, changing currentSessionId handles it
 
       toast({
         title: "Conversation Deleted",
@@ -262,7 +260,7 @@ export function useConversations() {
         description: errorMessage,
         variant: "destructive",
       });
-      setListError(errorMessage); // Use list error state
+      setListError(errorMessage); 
       return { success: false, error: errorMessage };
     }
   };
@@ -271,35 +269,28 @@ export function useConversations() {
    const setActiveConversation = useCallback((sessionId: string | null) => {
        console.log(`useConversations: Setting active conversation to session ID: ${sessionId}`);
        if (sessionId !== currentSessionId) {
-           setCurrentSessionId(sessionId);
-           // Fetching messages is handled by the useEffect watching currentSessionId
+           setCurrentSessionId(sessionId); // Triggers useEffect to fetch/clear messages
        }
    }, [currentSessionId]);
 
 
   // Return values including message state and handlers
   return {
-    // Conversation List related
-    conversations: conversationList, // Renamed state variable
-    loading: loadingList, // Renamed state variable
-    error: listError, // Renamed state variable
-    fetchConversations: fetchConversationList, // Renamed function
-
-    // Active Conversation (Messages) related
+    conversations: conversationList,
+    loading: loadingList,
+    error: listError,
+    fetchConversations: fetchConversationList,
     currentSessionId,
-    setActiveConversation, // New function added
-    messages, // Direct access to messages of the active session
-    isLoading: loadingMessages, // Renamed state variable for message loading
-    messageError, // New state variable for message errors
-    fetchMessages, // Keep fetchMessages if needed externally (e.g., manual refresh)
-    addMessage, // Updated function signature
-
-    // Actions
+    setActiveConversation,
+    messages,
+    isLoading: loadingMessages,
+    messageError,
+    fetchMessages, // Keep exported if needed elsewhere
+    addMessage,
     startNewConversation,
     deleteConversation,
   };
 }
-
 
 // Add the Supabase RPC function (run this in your Supabase SQL editor)
 /*

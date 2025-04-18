@@ -2,8 +2,9 @@
 import React, { RefObject, useCallback, useEffect } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Send, Loader2 } from "lucide-react";
-import { useIsMobile } from '@/hooks/use-mobile'; // Import useIsMobile
+import { SendHorizonal, Loader2 } from "lucide-react"; // Use SendHorizonal for consistency
+import { useIsMobile } from '@/hooks/use-mobile';
+import { cn } from "@/lib/utils"; // Import cn utility
 
 interface ChatInputProps {
   newMessage: string;
@@ -12,6 +13,7 @@ interface ChatInputProps {
   handleKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   textareaRef: RefObject<HTMLTextAreaElement>;
   isWaitingForAI: boolean;
+  className?: string; // Add className prop
 }
 
 const ChatInput: React.FC<ChatInputProps> = ({
@@ -20,26 +22,25 @@ const ChatInput: React.FC<ChatInputProps> = ({
   handleSendMessage,
   handleKeyDown,
   textareaRef,
-  isWaitingForAI
+  isWaitingForAI,
+  className, // Destructure className
 }) => {
-  const isMobile = useIsMobile(); // Use the hook
+  const isMobile = useIsMobile();
 
-  // Function to adjust textarea height
   const adjustTextareaHeight = useCallback((element: HTMLTextAreaElement | null) => {
     if (!element) return;
 
     const computedStyle = window.getComputedStyle(element);
-    const lineHeight = parseFloat(computedStyle.lineHeight) || 20; // Approx line height or get computed
+    const lineHeight = parseFloat(computedStyle.lineHeight) || 20;
     const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
     const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
     const borderTop = parseFloat(computedStyle.borderTopWidth) || 0;
     const borderBottom = parseFloat(computedStyle.borderBottomWidth) || 0;
     const verticalPaddingAndBorder = paddingTop + paddingBottom + borderTop + borderBottom;
 
-    const maxRows = isMobile ? 10 : 30;
+    const maxRows = isMobile ? 5 : 10; // Adjust max rows if needed
     const maxHeight = (maxRows * lineHeight) + verticalPaddingAndBorder;
 
-    // Temporarily shrink height to calculate scrollHeight correctly
     element.style.height = 'auto';
     const scrollHeight = element.scrollHeight;
 
@@ -52,58 +53,52 @@ const ChatInput: React.FC<ChatInputProps> = ({
     }
   }, [isMobile]);
 
-  // Adjust height on input change
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setNewMessage(e.target.value);
     adjustTextareaHeight(e.target);
   };
 
-  // Adjust height when newMessage is cleared (after sending)
   useEffect(() => {
     if (newMessage === '' && textareaRef.current) {
-      // Reset to single line height
-      textareaRef.current.style.height = 'auto'; 
+      textareaRef.current.style.height = 'auto';
       adjustTextareaHeight(textareaRef.current);
     }
   }, [newMessage, adjustTextareaHeight, textareaRef]);
 
-  // Initial height adjustment on mount
   useEffect(() => {
     adjustTextareaHeight(textareaRef.current);
   }, [adjustTextareaHeight, textareaRef]);
 
   return (
-    // Added p-2 for padding around the input area
-    <div className="w-full relative p-2">
-      <form onSubmit={handleSendMessage} className="flex items-end max-w-full">
+    // Apply external className to the root div
+    <div className={cn("w-full relative", className)}> 
+      <form onSubmit={handleSendMessage} className="flex items-end w-full">
+         {/* Make the div containing Textarea take full width */}
         <div className="flex-1 min-w-0 relative"> 
           <Textarea
             ref={textareaRef}
-            rows={1} // Start with 1 row
+            rows={1}
             value={newMessage}
-            onChange={handleTextareaChange} // Use the combined handler
+            onChange={handleTextareaChange}
             onKeyDown={handleKeyDown}
             placeholder="Type your message..."
-            // Removed min-h-[60px]. Dynamic height is handled by JS.
-            // Added overflow-hidden initially, pr-12 for button space.
-            className="resize-none overflow-hidden pr-12 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full block box-border py-2 px-3"
+            className="resize-none overflow-hidden pr-12 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full block box-border py-2.5 px-3 text-sm" // Adjusted padding slightly
             disabled={isWaitingForAI}
-            style={{ height: 'auto' }} // Start with auto height
+            style={{ height: 'auto' }}
           />
-          {/* Position the button absolutely within the textarea container */}
+          {/* Send Button positioned absolutely */}
           <Button 
             type="submit" 
-            variant="ghost" // Ghost variant for no background
-            size="icon" // Icon size for a smaller button
+            variant="ghost"
+            size="icon"
             disabled={isWaitingForAI || !newMessage.trim()}
-            // Adjusted absolute positioning - place consistently at bottom right
-            className="absolute right-2 bottom-2 h-8 w-8 text-gray-500 hover:text-blue-600 disabled:text-gray-300"
+            className="absolute right-2 bottom-2 h-8 w-8 text-gray-500 hover:text-blue-600 disabled:text-gray-300" // Keeps button at bottom-right
             aria-label="Send message"
           >
             {isWaitingForAI ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <Send className="h-4 w-4" />
+              <SendHorizonal className="h-4 w-4" /> // Use matching icon
             )}
           </Button>
         </div>

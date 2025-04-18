@@ -1,14 +1,24 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useConversations } from '@/hooks/useConversations'; // Updated hook
+import { useConversations } from '@/hooks/useConversations';
 import { useAuth } from '@/contexts/AuthContext';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from "@/components/ui/use-toast";
-import { ConversationSidebar } from '@/components/ai-assistant/ConversationSidebar'; // Refactored sidebar
+import { ConversationSidebar } from '@/components/ai-assistant/ConversationSidebar';
 import MainChatArea from '@/components/ai-assistant/MainChatArea';
-import ContextPanel from '@/components/ai-assistant/ContextPanel';
+import ContextPanel from '@/components/ai-assistant/ContextPanel'; // Keep for dialog content
 import { cn } from '@/lib/utils';
-import { Conversation as ConversationMessage } from '@/hooks/useConversations.types'; // Renaming to avoid conflict if needed
+import { Conversation as ConversationMessage } from '@/hooks/useConversations.types';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+  DialogFooter
+} from "@/components/ui/dialog";
+import { MessageSquareText, Settings2 } from 'lucide-react'; // Icons for buttons
 
 // Interface for individual messages remains the same
 interface Message {
@@ -22,7 +32,8 @@ interface Message {
 
 const AIAssistantPage: React.FC = () => {
   const { user } = useAuth();
-  const isMobile = useIsMobile();
+  // isMobile hook is no longer needed for layout decisions here
+  // const isMobile = useIsMobile(); 
 
   const {
     conversations: conversationList,
@@ -51,8 +62,9 @@ const AIAssistantPage: React.FC = () => {
 
   const [newMessage, setNewMessage] = useState("");
   const [isWaitingForAI, setIsWaitingForAI] = useState(false);
-  const [contextPanelOpen, setContextPanelOpen] = useState(!isMobile);
-  const [conversationSidebarOpen, setConversationSidebarOpen] = useState(!isMobile);
+  const [isConversationDialogOpen, setIsConversationDialogOpen] = useState(false);
+  const [isContextDialogOpen, setIsContextDialogOpen] = useState(false);
+
   const [messageContext, setMessageContext] = useState<{
     selectedClientId?: string;
     selectedLenderIds: string[];
@@ -73,24 +85,14 @@ const AIAssistantPage: React.FC = () => {
   useEffect(() => {
     if (currentSessionId) {
       console.log(`AIAssistantPage: Active session changed to ${currentSessionId}, fetching messages...`);
-      fetchMessages(currentSessionId); // Fetch messages for the newly selected session
+      fetchMessages(currentSessionId);
     } else {
-      // Optionally clear messages or handle the "no session selected" state
-      console.log("AIAssistantPage: No active session selected.");
+      console.log("AIAssistantPage: No active session selected. Ready for new input.");
     }
   }, [currentSessionId, fetchMessages]);
 
-  // Adjust sidebars based on mobile state
-  useEffect(() => {
-    if (isMobile) {
-      setConversationSidebarOpen(false);
-      setContextPanelOpen(false);
-    } else {
-      // Default to open on desktop
-      setConversationSidebarOpen(true);
-      setContextPanelOpen(true);
-    }
-  }, [isMobile]);
+  // Sidebar state based on mobile is removed
+  // useEffect(() => { ... }, [isMobile]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -102,7 +104,6 @@ const AIAssistantPage: React.FC = () => {
         toast({ variant: "destructive", title: "Error", description: "User not logged in." });
         return null;
     }
-    // Ensure history is an array before slicing
     const safeHistory = Array.isArray(history) ? history : [];
     const historyForWebhook = safeHistory.slice(-10).map(msg => ({ sender: msg.sender, message: msg.message }));
 
@@ -113,7 +114,7 @@ const AIAssistantPage: React.FC = () => {
         body: JSON.stringify({
           userId: user.id,
           userEmail: user.email,
-          sessionId: sessionId, // Use the provided sessionId
+          sessionId: sessionId,
           message: userMessage,
           history: historyForWebhook,
           context: messageContext
@@ -135,7 +136,7 @@ const AIAssistantPage: React.FC = () => {
       toast({ variant: "destructive", title: "AI Communication Error", description: error instanceof Error ? error.message : "Could not reach AI assistant." });
       return null;
     }
-  }, [user, n8nWebhookUrl, messageContext]); // Removed currentSessionId dependency
+  }, [user, n8nWebhookUrl, messageContext, toast]);
 
   const handleSendMessage = useCallback(async (e?: React.FormEvent | React.KeyboardEvent) => {
     if (e && 'preventDefault' in e) e.preventDefault();
@@ -144,13 +145,12 @@ const AIAssistantPage: React.FC = () => {
     let targetSessionId = currentSessionId;
     let isNewSession = false;
 
-    // 1. Start a new conversation if none is active
     if (!targetSessionId) {
-      setIsWaitingForAI(true); // Show loading early
+      setIsWaitingForAI(true);
       const newConv = await startNewConversation();
       if (newConv && newConv.session_id) {
         targetSessionId = newConv.session_id;
-        setActiveConversation(targetSessionId); // Set the new conversation as active
+        setActiveConversation(targetSessionId);
         isNewSession = true;
         console.log(`Started new conversation: ${targetSessionId}`);
       } else {
@@ -160,7 +160,7 @@ const AIAssistantPage: React.FC = () => {
       }
     }
 
-    if (!targetSessionId) { // Double-check if session ID is available
+    if (!targetSessionId) {
       toast({ variant: "destructive", title: "Error", description: "Session ID is missing." });
       setIsWaitingForAI(false);
       return;
@@ -168,33 +168,26 @@ const AIAssistantPage: React.FC = () => {
 
     const userMessageContent = newMessage;
     setNewMessage('');
-    if (!isNewSession) setIsWaitingForAI(true); // Set waiting if not already set for new session
+    if (!isNewSession) setIsWaitingForAI(true);
 
-    // 2. Add user message to the conversation (potentially new)
     const savedUserMessage = await addMessage(userMessageContent, 'user', targetSessionId);
     if (!savedUserMessage) {
       setIsWaitingForAI(false);
-      setNewMessage(userMessageContent); // Restore input if save failed
+      setNewMessage(userMessageContent);
       if (isNewSession && targetSessionId) {
-          // Attempt to delete the just-created session if the first message failed
           await deleteConversation(targetSessionId);
           setActiveConversation(null);
+          console.error("Failed to save the first message, reverting new conversation.");
       }
       return;
     }
 
-    // Fetch history *after* adding the user message, especially for new sessions
-    // Use apiMessages directly which should update via the hook
     const currentHistory = isNewSession ? [savedUserMessage] : [...(apiMessages || []), savedUserMessage];
-
-    // 3. Get AI response
     const aiResponseContent = await getAIResponse(userMessageContent, currentHistory, targetSessionId);
 
-    // 4. Add AI response
     if (aiResponseContent) {
       await addMessage(aiResponseContent, 'ai', targetSessionId);
     } else {
-      // Handle cases where AI response failed but user message was saved
       toast({ variant: "default", title: "AI Response Pending", description: "Could not get AI response, but your message was saved." });
     }
 
@@ -202,70 +195,66 @@ const AIAssistantPage: React.FC = () => {
     textareaRef.current?.focus();
 
   }, [
-    newMessage,
-    user,
-    currentSessionId,
-    isWaitingForAI,
-    addMessage,
-    getAIResponse,
-    startNewConversation,
-    setActiveConversation,
-    apiMessages, // Depend on apiMessages to get updated history
-    deleteConversation // Added dependency
+    newMessage, user, currentSessionId, isWaitingForAI, addMessage, getAIResponse,
+    startNewConversation, setActiveConversation, apiMessages, deleteConversation, toast
   ]);
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]); // Trigger scroll when mapped messages change
+  }, [messages]);
 
-  // Focus input on initial load
   useEffect(() => {
-    textareaRef.current?.focus();
-  }, []);
+    if (!isWaitingForAI) {
+        textareaRef.current?.focus();
+    }
+  }, [currentSessionId, isWaitingForAI]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !isWaitingForAI) {
       e.preventDefault();
       handleSendMessage(e);
     }
   };
 
-  // Start new conversation (used by sidebar and placeholder)
+  // Start new conversation (closes dialog)
   const handleStartNewConversation = useCallback(async () => {
-    setIsWaitingForAI(true); // Indicate loading while creating
+    if (isWaitingForAI) return;
+    setIsWaitingForAI(true);
     const newConv = await startNewConversation();
     if (newConv && newConv.session_id) {
         setActiveConversation(newConv.session_id);
-        setNewMessage(''); // Clear any pending input
-        if (isMobile) {
-            setConversationSidebarOpen(false);
-        }
+        setNewMessage('');
+        setIsConversationDialogOpen(false); // Close dialog after starting
     } else {
         toast({ variant: "destructive", title: "Error", description: "Failed to start a new conversation." });
     }
     setIsWaitingForAI(false);
-  }, [startNewConversation, setActiveConversation, isMobile, setConversationSidebarOpen]);
+  }, [startNewConversation, setActiveConversation, isWaitingForAI, toast]);
 
-  // Delete conversation
+  // Delete conversation (closes dialog if current deleted)
   const handleDeleteConversation = useCallback(async (sessionIdToDelete: string) => {
-    if (!deleteConversation) return;
+    if (!deleteConversation || !sessionIdToDelete) return;
     console.log(`AIAssistantPage: Deleting conversation session ${sessionIdToDelete}`);
     const { success } = await deleteConversation(sessionIdToDelete);
-    if (success && currentSessionId === sessionIdToDelete) {
-        setActiveConversation(null); // Clear selection if active chat was deleted
-        setNewMessage(''); // Clear input
+    if (success) {
+        toast({ title: "Conversation Deleted", description: `Session ${sessionIdToDelete.substring(0,8)}... removed.` });
+        if (currentSessionId === sessionIdToDelete) {
+            setActiveConversation(null);
+            setNewMessage('');
+            // Close the dialog if the active conversation was deleted
+            setIsConversationDialogOpen(false); 
+        }
+        // Potentially refetch or update list if needed, assuming hook handles it
+    } else {
+        toast({ variant: "destructive", title: "Deletion Failed", description: "Could not delete the conversation." });
     }
-    // No need to manually refetch list, hook should handle it
-  }, [deleteConversation, currentSessionId, setActiveConversation]);
+  }, [deleteConversation, currentSessionId, setActiveConversation, toast]);
 
-  // Save as PDF (using browser print)
   const handleSaveAsPdf = useCallback(() => {
     toast({ title: "Print Chat", description: "Use your browser's print function (Ctrl+P/Cmd+P) and select 'Save as PDF'." });
     window.print();
-  }, []);
+  }, [toast]);
 
-  // Copy to clipboard
   const handleCopyToClipboard = useCallback(() => {
     if (!messages || messages.length === 0) {
         toast({ title: "Nothing to Copy", description: "The chat is empty." });
@@ -286,88 +275,111 @@ ${msg.message}`;
           console.error("Clipboard copy error:", err);
           toast({ variant: "destructive", title: "Copy Failed", description: `Could not copy to clipboard. See console for details.` });
       });
-  }, [messages]);
+  }, [messages, toast]);
 
-  // Print
   const handlePrint = useCallback(() => {
     toast({ title: "Print Chat", description: "Opening print dialog..." });
     window.print();
-  }, []);
-
+  }, [toast]);
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-white overflow-hidden">
-      <div className="flex-1 flex overflow-hidden relative">
-          {/* Mobile conversation overlay */} 
-          {conversationSidebarOpen && isMobile && (
-            <div 
-                className="fixed inset-0 bg-black/50 z-30 md:hidden" 
-                onClick={() => setConversationSidebarOpen(false)} 
-            />
-          )}
-          
-          {/* Conversation Sidebar Container */}
-          {/* Use conditional rendering or dynamic classes for sidebar */}
-          <div className={cn(
-              "fixed inset-y-0 left-0 z-40 w-64 bg-gray-50 border-r transform transition-transform duration-300 md:static md:z-auto md:translate-x-0", 
-              conversationSidebarOpen ? "translate-x-0" : "-translate-x-full"
-          )}>
-              <ConversationSidebar
-                conversations={conversationList}
-                loading={isLoadingList}
-                error={conversationListError}
-                selectedConversationId={currentSessionId}
-                onSelectConversation={(id) => {
-                    setActiveConversation(id);
-                    if (isMobile) setConversationSidebarOpen(false); // Close on selection in mobile
-                }}
-                onStartNewConversation={handleStartNewConversation}
-                onDeleteConversation={handleDeleteConversation}
-                className="h-full" 
-              />
-          </div>
+    // Main container: centers the chat area
+    <div className="flex flex-col h-full items-center bg-white overflow-hidden relative p-4">
 
-          {/* Main Content Area */} 
-          <div className="flex-1 flex overflow-hidden">
-                <MainChatArea
-                    messages={messages} 
-                    isLoadingHistory={isLoadingHistory && !!currentSessionId} // Only show loading if a session is selected
-                    conversationError={messageError}
-                    currentSessionId={currentSessionId}
-                    isWaitingForAI={isWaitingForAI}
-                    user={user}
-                    messagesEndRef={messagesEndRef}
-                    textareaRef={textareaRef}
-                    newMessage={newMessage}
-                    setNewMessage={setNewMessage}
-                    handleSendMessage={handleSendMessage}
-                    handleKeyDown={handleKeyDown}
-                    conversationSidebarOpen={conversationSidebarOpen} 
-                    setConversationSidebarOpen={setConversationSidebarOpen} 
-                    // fetchMessages removed - handled by useEffect
-                    contextPanelOpen={contextPanelOpen} 
-                    setContextPanelOpen={setContextPanelOpen}
-                    onDeleteConversation={() => currentSessionId && handleDeleteConversation(currentSessionId)}
-                    onSaveAsPdf={handleSaveAsPdf}
-                    onCopyToClipboard={handleCopyToClipboard}
-                    onPrint={handlePrint}
-                    messageSuggestions={messageSuggestions}
-                    onStartNewConversation={handleStartNewConversation} // Pass the start new conversation handler
-                />
-                
-                {/* Context Panel Container - Adjusted for better overlay/static behavior */}
-                <div className={cn(
-                    "fixed inset-y-0 right-0 z-30 w-80 border-l bg-white transform transition-transform duration-300 lg:static lg:z-auto lg:translate-x-0", 
-                    contextPanelOpen ? "translate-x-0" : "translate-x-full"
-                )}>
-                    <ContextPanel
-                    contextPanelOpen={contextPanelOpen} 
-                    setContextPanelOpen={setContextPanelOpen} 
-                    onContextChange={setMessageContext}
-                    />
-                </div>
-            </div>
+      {/* Floating Conversation Button & Dialog */}
+      <Dialog open={isConversationDialogOpen} onOpenChange={setIsConversationDialogOpen}>
+        <DialogTrigger asChild>
+          <Button
+            variant="outline"
+            size="icon"
+            // Position fixed on the left, vertically centered
+            className="fixed left-4 top-1/2 -translate-y-1/2 z-10 rounded-full shadow-lg h-12 w-12" 
+            aria-label="Conversations"
+          >
+            <MessageSquareText className="h-6 w-6" />
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-[425px]"> 
+          <DialogHeader>
+            <DialogTitle>Conversations</DialogTitle>
+          </DialogHeader>
+          <ConversationSidebar
+            conversations={conversationList}
+            loading={isLoadingList}
+            error={conversationListError}
+            selectedConversationId={currentSessionId}
+            onSelectConversation={(id) => {
+                setActiveConversation(id);
+                setIsConversationDialogOpen(false); // Close dialog on selection
+            }}
+            onStartNewConversation={handleStartNewConversation} // Already closes dialog
+            onDeleteConversation={handleDeleteConversation} // Handles closing if needed
+            className="h-auto max-h-[70vh] overflow-y-auto" 
+          />
+           <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="secondary">
+                  Close
+                </Button>
+              </DialogClose>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Main Chat Area Container: Centered with max-width */} 
+      <div className="flex-1 flex flex-col w-full max-w-3xl overflow-hidden h-full">
+        <MainChatArea
+          messages={messages}
+          isLoadingHistory={isLoadingHistory && !!currentSessionId}
+          conversationError={messageError}
+          currentSessionId={currentSessionId}
+          isWaitingForAI={isWaitingForAI}
+          user={user}
+          messagesEndRef={messagesEndRef}
+          textareaRef={textareaRef}
+          newMessage={newMessage}
+          setNewMessage={setNewMessage}
+          handleSendMessage={handleSendMessage}
+          handleKeyDown={handleKeyDown}
+          // Remove props related to static sidebars
+          // Pass handler to open context dialog
+          onOpenContextDialog={() => setIsContextDialogOpen(true)}
+          // Identify this page variant to MainChatArea (using isAssistPage convention)
+          isAssistPage={true} 
+          showChatSessionInfo={!!currentSessionId} // Show info box when session ID exists
+          // Pass conversation management functions directly
+          onDeleteConversation={() => currentSessionId && handleDeleteConversation(currentSessionId)}
+          onSaveAsPdf={handleSaveAsPdf}
+          onCopyToClipboard={handleCopyToClipboard}
+          onPrint={handlePrint}
+          messageSuggestions={messageSuggestions}
+          // onStartNewConversation={handleStartNewConversation} // Not needed in MainChatArea for this layout
+        />
       </div>
+
+      {/* Context Panel Dialog */}
+      <Dialog open={isContextDialogOpen} onOpenChange={setIsContextDialogOpen}>
+        {/* Trigger is now inside MainChatArea's input section */}
+        <DialogContent className="sm:max-w-md"> 
+           <DialogHeader>
+             <DialogTitle>Context</DialogTitle>
+           </DialogHeader>
+          <ContextPanel
+            onContextChange={setMessageContext}
+            className="h-auto max-h-[70vh] overflow-y-auto"
+            // Pass any props needed by ContextPanel internally, e.g., initial values
+            // Currently selected context is managed by `messageContext` state here.
+          />
+          <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="secondary">
+                  Close
+                </Button>
+              </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 };

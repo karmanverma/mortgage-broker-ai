@@ -22,7 +22,8 @@ const DashboardLayout = () => {
         } lg:hidden`}
         aria-hidden={!mobileMenuOpen}
       >
-        <Sidebar onClose={closeMobileMenu} />
+        {/* Pass only close function for mobile */}
+        <Sidebar isMobile={true} isOpen={true} toggleSidebar={() => {}} onClose={closeMobileMenu} />
       </div>
 
       {/* Mobile menu backdrop */}
@@ -34,22 +35,19 @@ const DashboardLayout = () => {
         />
       )}
 
-      {/* Desktop Sidebar */} 
+      {/* Desktop Sidebar - Takes up space in the flex layout */}
       <div
-        className={`hidden lg:block fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200 shadow-sm transition-transform duration-300 ease-in-out transform ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        className={`hidden lg:flex lg:flex-shrink-0 transition-all duration-300 ease-in-out ${
+          sidebarOpen ? "w-64" : "w-16"
         }`}
-        aria-hidden={!sidebarOpen}
       >
-        <Sidebar onClose={() => {}} />
+        <Sidebar isMobile={false} isOpen={sidebarOpen} toggleSidebar={toggleSidebar} onClose={() => {}} />
       </div>
 
-      {/* Main Content Area */} 
-      <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${sidebarOpen ? 'lg:pl-64' : 'lg:pl-0'}`}>
-         {/* Header */} 
+      {/* Main Content Area - Removed padding classes */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+         {/* Header - Removed sidebar toggle props */}
          <Header
-           toggleSidebar={toggleSidebar}
-           sidebarOpen={sidebarOpen}
            toggleMobileMenu={toggleMobileMenu}
          />
          {/* Content Area - Allow vertical scrolling */}

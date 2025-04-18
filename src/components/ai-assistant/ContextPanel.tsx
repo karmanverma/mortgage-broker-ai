@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -110,7 +109,7 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
         }
     }, [user, fetchLenders, fetchDocuments]);
 
-    // Initialize selected lenders once data is available
+    // Initialize selected lenders once data is available (Select All by default)
     useEffect(() => {
         if (!isLoadingLenders && !isLoadingDocuments && lendersWithDocuments.length > 0 && !initializedLenders) {
             const allLenderIds = lendersWithDocuments.map(lender => lender.id);
@@ -139,24 +138,38 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
         );
     }, [lendersWithDocuments, lenderTypeFilter]);
 
+    // MODIFIED: Handle individual lender checkbox changes
     const handleCheckboxChange = (lenderId: string, checked: boolean | string) => {
-        setSelectedLenderIds(prevSelected =>
-            checked
-                ? [...prevSelected, lenderId]
-                : prevSelected.filter(id => id !== lenderId)
-        );
+         if (checked) {
+             // Select only this one lender
+             setSelectedLenderIds([lenderId]);
+         } else {
+             // If unchecking the currently selected one, deselect all
+             setSelectedLenderIds([]);
+         }
     };
 
+    // MODIFIED: Handle "Select All" checkbox changes
     const handleSelectAllVisible = (checked: boolean | string) => {
         const visibleLenderIds = filteredLenders.map(l => l.id);
         if (checked) {
-            setSelectedLenderIds(prevSelected => Array.from(new Set([...prevSelected, ...visibleLenderIds])));
+            // Select all visible lenders
+            setSelectedLenderIds(visibleLenderIds);
         } else {
-            setSelectedLenderIds(prevSelected => prevSelected.filter(id => !visibleLenderIds.includes(id)));
+            // Deselect all lenders
+            setSelectedLenderIds([]);
         }
     };
 
-    const allVisibleSelected = filteredLenders.length > 0 && filteredLenders.every(l => selectedLenderIds.includes(l.id));
+    // MODIFIED: Determine if "Select All" should be checked
+    const allVisibleSelected = useMemo(() => {
+        if (filteredLenders.length === 0) return false; // Can't select all if none are visible
+        // Check if the number of selected lenders matches the number of filtered lenders
+        // AND every filtered lender is included in the selected list
+        return selectedLenderIds.length === filteredLenders.length &&
+               filteredLenders.every(l => selectedLenderIds.includes(l.id));
+    }, [selectedLenderIds, filteredLenders]);
+
 
     // Apply the passed className to the root element, and add necessary internal layout styles
     return (
@@ -253,7 +266,7 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
                                         <SelectItem value="All">All Types</SelectItem>
                                         {uniqueLenderTypes.map(type => (
                                             <SelectItem key={type} value={type}>{type}</SelectItem>
-                                        ))}\
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -273,7 +286,7 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
                                             <div className="flex items-center space-x-2 pb-2 border-b mb-2">
                                                 <Checkbox
                                                     id="select-all-lenders"
-                                                    checked={allVisibleSelected}
+                                                    checked={allVisibleSelected} // Use the memoized value
                                                     onCheckedChange={handleSelectAllVisible}
                                                     aria-label="Select all visible lenders"
                                                     disabled={filteredLenders.length === 0}
@@ -292,6 +305,7 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
                                                     <Checkbox
                                                         id={`lender-${lender.id}`} // Ensure unique ID
                                                         checked={selectedLenderIds.includes(lender.id)}
+                                                        // Use the modified handler
                                                         onCheckedChange={(checked) => handleCheckboxChange(lender.id, checked)}
                                                     />
                                                     <Label
@@ -318,8 +332,8 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
 
             {/* Footer */}
             <div className="p-4 border-t shrink-0 bg-gray-50">
-                <p className="text-xs text-gray-600 mb-2 text-center">
-                    {selectedClientId ? '1 client,' : 'No client,'} {selectedLenderIds.length} lender(s) selected
+                 <p className="text-xs text-gray-600 mb-2 text-center">
+                    {selectedClientId ? '1 client,' : 'No client,'} {/* MODIFIED: Show correct count based on selection logic */} {selectedLenderIds.length === filteredLenders.length && filteredLenders.length > 1 ? 'All' : selectedLenderIds.length} lender(s) selected
                 </p>
                 <Popover>
                     <PopoverTrigger asChild>

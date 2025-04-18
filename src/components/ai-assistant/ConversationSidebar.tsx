@@ -81,11 +81,13 @@ export function ConversationSidebar({
 
 
   return (
-    <div className={cn("h-full flex flex-col border-r bg-gray-50 dark:bg-gray-900/50", className)}>
-      <div className="p-4 flex justify-between items-center border-b">
-        <h2 className="text-lg font-semibold">Conversations</h2>
-        <Button variant="ghost" size="icon" onClick={handleStartNewConversation} title="Start New Conversation">
-          <PlusCircle className="h-5 w-5" />
+    // MODIFIED: Added bg-white and removed dark mode classes
+    <div className={cn("h-full flex flex-col border-r bg-white", className)}>
+      {/* MODIFIED: Removed heading, updated button style and container */}
+      <div className="p-4 border-b">
+        <Button variant="outline" className="w-full" onClick={handleStartNewConversation} title="Start New Conversation">
+          <PlusCircle className="h-5 w-5 mr-2" /> {/* Added margin */}
+          New Chat {/* Added text */}
         </Button>
       </div>
       <ScrollArea className="flex-1">
@@ -108,8 +110,9 @@ export function ConversationSidebar({
                 key={convSessionId} // Use session_id for the key
                 onClick={() => onSelectConversation(convSessionId)} // Pass session_id
                 className={cn(
-                  "flex items-center justify-between p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer group",
-                  selectedConversationId === convSessionId ? "bg-gray-100 dark:bg-gray-800 font-medium" : ""
+                  // MODIFIED: Adjusted hover/selected background for white bg
+                  "flex items-center justify-between p-2 rounded-md hover:bg-gray-100 cursor-pointer group",
+                  selectedConversationId === convSessionId ? "bg-gray-100 font-medium" : ""
                 )}
               >
                 <div className="flex items-center space-x-2 overflow-hidden">

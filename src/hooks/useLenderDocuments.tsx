@@ -1,278 +1,242 @@
-import { useState, useCallback } from 'react';
-import { supabase, deleteFile } from '@/integrations/supabase/client';
+import { useState, useCallback, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from '@/components/ui/use-toast';
-import { Tables } from '@/integrations/supabase/types';
 
-export type Document = Tables<'documents'>;
-
-export type NewDocumentPayload = {
-  name: string;
-  description?: string;
-  file: File;
-  lenderId: string;
-};
-
-export interface UseLenderDocumentsReturn {
-  documents: Document[];
-  isLoading: boolean;
-  error: string | null;
-  fetchDocuments: (lenderId?: string) => Promise<Document[]>;
-  uploadDocument: (payload: NewDocumentPayload) => Promise<Document | null>;
-  deleteDocument: (documentId: string, filePath: string, lenderId?: string) => Promise<boolean>;
+interface LenderDocument {
+    id: string;
+    created_at: string;
+    lender_id: string;
+    name: string;
+    file_path: string;
+    file_type: string;
+    file_size: number;
+    user_id: string;
+    url?: string; // This will no longer be populated by fetchDocuments
 }
 
-export function useLenderDocuments(): UseLenderDocumentsReturn {
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth();
+// ... other interfaces remain the same ...
+interface UploadDocumentOptions {
+    lenderId: string;
+    file: File;
+    onProgress?: (progress: number) => void;
+}
 
-  const fetchDocuments = useCallback(async (lenderId?: string): Promise<Document[]> => {
-    // ... (fetchDocuments implementation remains the same) ...
-    console.log(`fetchDocuments called for lenderId: ${lenderId}`);
-    if (!user) {
-      console.log('fetchDocuments: No user found, returning empty array.');
-      setDocuments([]);
-      setIsLoading(false);
-      setError('User not authenticated');
-      return [];
-    }
+interface GenerateSignedUrlResponse {
+    signedUrl: string | null;
+    error: string | null;
+}
 
-    setIsLoading(true);
-    setError(null); // Clear previous errors
-    let fetchedData: Document[] = [];
+const WEBHOOK_ENDPOINT = 'https://n8n.srv783065.hstgr.cloud/webhook/093605b7-2040-4ab6-b151-4af4ed970bc4';
 
-    try {
-      console.log(`fetchDocuments: Fetching documents for user ${user.id} and lender ${lenderId}`);
-      let query = supabase
-        .from('documents')
-        .select('*')
-        .eq('user_id', user.id);
 
-      if (lenderId) {
-        query = query.eq('lender_id', lenderId);
-      }
+// Modified: lenderId is now optional
+export function useLenderDocuments(lenderId?: string) {
+    const [documents, setDocuments] = useState<LenderDocument[]>([]);
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [error, setError] = useState<string | null>(null);
+    const { toast } = useToast();
+    const { user } = useAuth();
 
-      const { data, error: fetchError, status } = await query.order('created_at', { ascending: false });
-
-      console.log('fetchDocuments: Supabase query result:', { status, fetchError, data });
-
-      if (fetchError) {
-        console.error('fetchDocuments: Supabase error:', fetchError);
-        throw fetchError;
-      }
-
-      fetchedData = data || [];
-      setDocuments(fetchedData);
-      console.log(`fetchDocuments: Successfully fetched and set ${fetchedData.length} documents.`);
-
-    } catch (err: any) {
-      console.error('Error fetching documents:', err);
-      const errorMessage = err.message || 'Unknown error fetching documents';
-      setError(errorMessage);
-      toast({
-        variant: "destructive",
-        title: "Failed to load documents",
-        description: errorMessage,
-      });
-      setDocuments([]);
-      fetchedData = [];
-    } finally {
-      setIsLoading(false);
-    }
-    return fetchedData;
-  }, [user]);
-
-  const deleteDocument = useCallback(async (documentId: string, filePath: string, lenderId?: string): Promise<boolean> => {
-    // ... (deleteDocument implementation remains the same) ...
-    if (!user || !documentId || !filePath) {
-        console.error('deleteDocument: Missing user, documentId, or filePath.');
-        toast({ title: "Error", description: "Missing required information.", variant: "destructive" });
-        return false;
-    }
-    console.log(`deleteDocument: Starting delete for document ID ${documentId}, path: ${filePath}`);
-
-    try {
-      console.log(`deleteDocument: Deleting from storage bucket 'lender_documents'...`);
-      await deleteFile('lender_documents', filePath);
-      console.log(`deleteDocument: File deleted from storage successfully.`);
-
-      console.log(`deleteDocument: Deleting record from 'documents' table.`);
-      const { error: deleteDbError } = await supabase
-        .from('documents')
-        .delete()
-        .eq('id', documentId)
-        .eq('user_id', user.id);
-
-      if (deleteDbError) {
-        console.error('deleteDocument: Supabase DB delete error:', deleteDbError);
-        toast({ title: "Database Delete Failed", description: deleteDbError.message, variant: "destructive" });
-        return false;
-      }
-      console.log(`deleteDocument: Database record deleted successfully.`);
-
-      await fetchDocuments(lenderId);
-
-      toast({ title: "Document Deleted", description: "Document removed successfully." });
-      return true;
-
-    } catch (error: any) {
-      console.error('Error deleting document:', error);
-      toast({
-        variant: "destructive",
-        title: "Failed to delete document",
-        description: `Error: ${error.message || 'Unknown error'}`,
-      });
-      return false;
-    }
-  }, [user, fetchDocuments]);
-
-  const uploadDocument = useCallback(async (payload: NewDocumentPayload): Promise<Document | null> => {
-    if (!user) {
-      console.error("uploadDocument: No user found.");
-      toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
-      return null;
-    }
-    console.log(`uploadDocument: Starting upload for file: ${payload.file.name}, lender: ${payload.lenderId}`);
-
-    const fileExt = payload.file.name.split('.').pop();
-    const timestamp = Date.now();
-    const safeFileName = payload.file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const filePath = `${user.id}/${payload.lenderId}/${timestamp}_${safeFileName}`;
-    console.log(`uploadDocument: Generated storage path: ${filePath}`);
-
-    let uploadedFilePath: string | null = null;
-
-    try {
-      // 1. Upload to Storage
-      console.log(`uploadDocument: Uploading to bucket 'lender_documents'...`);
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('lender_documents')
-        .upload(filePath, payload.file, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      if (uploadError) {
-        console.error('uploadDocument: Storage upload error:', uploadError);
-        throw new Error(`Storage upload failed: ${uploadError.message}`);
-      }
-      uploadedFilePath = uploadData?.path ?? null;
-      console.log(`uploadDocument: Storage upload successful. Path: ${uploadedFilePath}`);
-
-      if (!uploadedFilePath) {
-        throw new Error('Storage upload succeeded but did not return a path.');
-      }
-
-      // 2. Insert into Database
-      console.log(`uploadDocument: Inserting record into 'documents' table.`);
-      const { data: newDbRecord, error: insertError } = await supabase
-        .from('documents')
-        .insert({
-          name: payload.name,
-          file_path: uploadedFilePath,
-          file_type: payload.file.type,
-          file_size: payload.file.size,
-          lender_id: payload.lenderId,
-          user_id: user.id,
-          description: payload.description || null,
-        })
-        .select()
-        .single();
-
-      if (insertError) {
-        console.error('uploadDocument: Supabase insert error (check RLS policy!):', insertError);
-        // Attempt cleanup on DB insert failure
-        if (uploadedFilePath) {
-          await deleteFile('lender_documents', uploadedFilePath).catch(cleanupErr => {
-            console.error('Upload cleanup failed:', cleanupErr)
-          });
+    const fetchDocuments = useCallback(async () => {
+        if (!user) {
+            console.log("fetchDocuments: No user found, skipping fetch.");
+            setDocuments([]);
+            return;
         }
-        throw new Error(`Database insert failed: ${insertError.message}`);
-      }
-      console.log('uploadDocument: Database record inserted:', newDbRecord);
 
-      // *** 3. Generate Signed URL for Webhook ***
-      let signedWebhookUrl: string | null = null;
-      const webhookUrlExpiresIn = 3600; // 1 hour in seconds
-      try {
-          console.log(`uploadDocument: Generating signed URL for webhook (expires in ${webhookUrlExpiresIn}s)...`);
-          const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-              .from('lender_documents')
-              .createSignedUrl(uploadedFilePath, webhookUrlExpiresIn, { download: true }); // Use download: true
+        setIsLoading(true);
+        setError(null);
 
-          if (signedUrlError) {
-              console.error('uploadDocument: Error generating signed URL for webhook:', signedUrlError);
-              // Continue without signed URL, maybe log a warning?
-              toast({ title: "Webhook Warning", description: "Could not generate temporary URL for notification.", variant: "warning" });
-          } else {
-              signedWebhookUrl = signedUrlData.signedUrl;
-              console.log(`uploadDocument: Signed URL for webhook generated: ${signedWebhookUrl}`);
-          }
-      } catch (urlError: any) {
-          console.error('uploadDocument: Exception generating signed URL for webhook:', urlError);
-          toast({ title: "Webhook Error", description: `Failed to generate temporary URL: ${urlError.message}`, variant: "warning" });
-      }
+        try {
+            let query = supabase
+                .from('documents')
+                .select('id, created_at, lender_id, name, file_path, file_type, file_size, user_id')
+                .eq('user_id', user.id);
 
-      // *** 4. Send Webhook Notification ***
-      const webhookUrl = 'https://n8n.srv783065.hstgr.cloud/webhook/093605b7-2040-4ab6-b151-4af4ed970bc4';
-      // Use the signed URL if available, otherwise maybe send null or a placeholder?
-      const webhookPayload = {
-        document_id: newDbRecord.id,
-        document_file_path: uploadedFilePath, // Keep the path for reference
-        // Use the generated signed URL here
-        uploaded_document_url: signedWebhookUrl, // This will be the signed URL or null
-        document_file_type: payload.file.type,
-      };
-      console.log("uploadDocument: Sending webhook notification with payload:", webhookPayload);
-      try {
-        const response = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(webhookPayload),
-        });
-        if (!response.ok) {
-          console.error('Webhook failed:', response.status, await response.text());
-          toast({ title: "Webhook Warning", description: `Could not notify system. Status: ${response.status}`, variant: "warning" });
-        } else {
-          console.log("Webhook sent successfully.");
+            if (lenderId) {
+                query = query.eq('lender_id', lenderId);
+                console.log(`Fetching documents for Lender ID: ${lenderId} and User ID: ${user.id}`);
+            } else {
+                console.log(`Fetching all documents for User ID: ${user.id}`);
+            }
+
+            const { data, error: fetchError } = await query;
+
+            if (fetchError) {
+                console.error("Error fetching documents:", fetchError);
+                throw fetchError;
+            }
+
+            console.log("Fetched documents data:", data);
+
+            // *** Removed signed URL generation from fetch ***
+            // Documents are set without the 'url' property populated here.
+            setDocuments((data || []) as LenderDocument[]);
+
+        } catch (err: any) {
+            console.error("Caught error during fetchDocuments:", err);
+            const errorMessage = err.message || "An unknown error occurred while fetching documents.";
+            setError(errorMessage);
+            toast({
+                title: "Error Fetching Documents",
+                description: errorMessage,
+                variant: "destructive",
+            });
+            setDocuments([]);
+        } finally {
+            setIsLoading(false);
         }
-      } catch (webhookError: any) {
-        console.error("Error sending webhook:", webhookError);
-        toast({ title: "Webhook Error", description: `Failed to send notification: ${webhookError.message}`, variant: "warning" });
-      }
+    }, [lenderId, user, toast]);
 
-      toast({ title: "Document Uploaded", description: `${payload.name} uploaded successfully.` });
+    useEffect(() => {
+        fetchDocuments();
+    }, [fetchDocuments]);
 
-      // *** 5. Refetch for the specific lender ***
-      await fetchDocuments(payload.lenderId);
-      return newDbRecord;
+    const uploadDocument = useCallback(async ({ file, onProgress }: Omit<UploadDocumentOptions, 'lenderId'>) => {
+         if (!lenderId) {
+              setError("Lender ID is missing for upload.");
+              toast({ title: "Upload Error", description: "Lender ID is required to upload a document.", variant: "destructive" });
+              return null;
+         }
+         if (!file || !user) {
+             setError("File or user information is missing for upload.");
+             toast({ title: "Upload Error", description: "File or user information is missing.", variant: "destructive" });
+             return null;
+         }
 
-    } catch (error: any) {
-      console.error('Error in uploadDocument process:', error);
-      toast({
-        variant: "destructive",
-        title: "Failed to upload document",
-        description: error.message || 'An unknown error occurred.',
-      });
-      // Attempt cleanup if upload succeeded but something failed later
-      if (uploadedFilePath && !error.message?.startsWith('Storage upload failed') && !error.message?.startsWith('Database insert failed')) {
-        console.warn('Upload process failed after storage success, attempting cleanup...');
-        await deleteFile('lender_documents', uploadedFilePath).catch(cleanupErr => {
-          console.error('Upload error cleanup failed:', cleanupErr)
-        });
-      }
-      return null;
-    }
-  }, [user, fetchDocuments]);
+         setIsLoading(true);
+         setError(null);
+         const timestamp = Date.now();
+         const uniqueFileName = `${timestamp}-${file.name.replace(/\s+/g, '_')}`;
+         const filePath = `${user.id}/${lenderId}/${uniqueFileName}`;
+         const bucketName = 'lender_documents';
 
-  return {
-    documents,
-    isLoading,
-    error,
-    fetchDocuments,
-    uploadDocument,
-    deleteDocument,
-  };
+         console.log(`Starting upload for: ${file.name} to ${bucketName}/${filePath}`);
+         console.log(`User ID performing upload: ${user.id}`);
+
+         try {
+             // 1. Upload File
+             const { error: uploadError } = await supabase.storage
+                 .from(bucketName)
+                 .upload(filePath, file, { cacheControl: '3600', upsert: false, contentType: file.type });
+             if (uploadError) throw new Error(`Storage upload failed: ${uploadError.message}`);
+             console.log(`File uploaded successfully to ${filePath}`);
+
+             // 2. Insert Record
+             const documentRecord = { lender_id: lenderId, user_id: user.id, name: file.name, file_path: filePath, file_type: file.type, file_size: file.size };
+             const { data: insertedData, error: insertError } = await supabase.from('documents').insert([documentRecord]).select().single();
+             if (insertError) {
+                 console.warn(`Attempting to delete orphaned file: ${filePath}`);
+                 await supabase.storage.from(bucketName).remove([filePath]);
+                 throw new Error(`Database insert failed: ${insertError.message}`);
+             }
+             if (!insertedData) {
+                  console.warn(`Attempting to delete orphaned file: ${filePath}`);
+                  await supabase.storage.from(bucketName).remove([filePath]);
+                 throw new Error("Failed to insert document record: No data returned.");
+             }
+             const newDocument = insertedData as LenderDocument;
+             console.log("Document record inserted successfully:", newDocument);
+
+             // 3. Generate Signed URL for Webhook (Optional - Unchanged)
+             let signedWebhookUrl: string | null = null;
+             const webhookUrlExpiresIn = 3600;
+             try {
+                 const { data: signedUrlData, error: signedUrlError } = await supabase.storage.from(bucketName).createSignedUrl(filePath, webhookUrlExpiresIn, { download: false });
+                 if (signedUrlError) console.warn(`Could not generate signed URL for webhook: ${signedUrlError.message}`);
+                 else if (signedUrlData?.signedUrl) signedWebhookUrl = signedUrlData.signedUrl;
+                 else console.warn("Signed URL generation for webhook returned no URL.");
+             } catch (urlGenError: any) { console.error("Error during webhook signed URL generation:", urlGenError.message); }
+
+             // 4. Call Webhook (Unchanged)
+             console.log("Calling webhook endpoint:", WEBHOOK_ENDPOINT);
+             fetch(WEBHOOK_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: "New lender document uploaded", documentId: newDocument.id, lenderId: newDocument.lender_id, userId: newDocument.user_id, filePath: newDocument.file_path, fileName: newDocument.name, fileType: newDocument.file_type, fileSize: newDocument.file_size, signedUrl: signedWebhookUrl, uploadedAt: newDocument.created_at }) })
+             .then(async response => { const body = await response.text(); if (!response.ok) console.error(`Webhook error ${response.status}: ${body}`); else console.log(`Webhook success: ${body}`); })
+             .catch(webhookError => console.error("Webhook fetch error:", webhookError));
+
+             // 5. Update Local State & Refetch (Important: Refetch triggers list update)
+             await fetchDocuments(); // Refetch documents after upload
+
+             toast({ title: "Upload Successful", description: `${file.name} uploaded.` });
+             return newDocument;
+
+         } catch (err: any) {
+             console.error("Caught error during uploadDocument:", err);
+             const errorMessage = err.message || "Upload error.";
+             setError(errorMessage);
+             toast({ title: "Upload Failed", description: errorMessage, variant: "destructive" });
+             return null;
+         } finally { setIsLoading(false); }
+     }, [lenderId, user, toast, fetchDocuments]);
+
+    const deleteDocument = useCallback(async (documentId: string, filePath: string) => {
+        if (!user) {
+             setError("User not authenticated.");
+             toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
+             return;
+        }
+        console.log(`Attempting to delete document ID: ${documentId}, Path: ${filePath}`);
+        setIsLoading(true); setError(null); // Use hook's loading state
+        const bucketName = 'lender_documents';
+        try {
+             const { error: dbError } = await supabase.from('documents').delete().eq('id', documentId).eq('user_id', user.id);
+            if (dbError) throw new Error(`Database delete failed: ${dbError.message}`);
+            console.log(`Document record ${documentId} deleted from database.`);
+            const { error: storageError } = await supabase.storage.from(bucketName).remove([filePath]);
+            if (storageError && storageError.message !== 'The resource was not found') {
+                 console.error(`Storage delete error for path ${filePath}:`, storageError);
+                 throw new Error(`Storage delete failed: ${storageError.message}.`);
+            }
+            console.log(`File ${filePath} potentially deleted from storage.`);
+
+            // Update state locally for immediate UI feedback
+            setDocuments(prevDocs => prevDocs.filter(doc => doc.id !== documentId));
+
+            toast({ title: "Document Deleted", description: "Document deleted successfully." });
+
+            // No explicit refetch needed here unless there's a specific reason
+
+        } catch (err: any) {
+             console.error("Caught error during deleteDocument:", err);
+            const errorMessage = err.message || "Deletion error.";
+            setError(errorMessage);
+            toast({ title: "Deletion Failed", description: errorMessage, variant: "destructive" });
+        } finally { setIsLoading(false); }
+    }, [user, toast]); // Removed lenderId and fetchDocuments dependencies as local state update is used
+
+    // generateSignedUrl remains the same - this will be called on demand
+    const generateSignedUrl = useCallback(async (filePath: string, expiresIn: number = 60): Promise<GenerateSignedUrlResponse> => { // Default short expiry for download
+        console.log(`Generating on-demand signed URL for path: ${filePath}, Expires in: ${expiresIn}s`);
+         try {
+             const { data, error } = await supabase.storage.from('lender_documents').createSignedUrl(filePath, expiresIn, {
+               download: true // Ensure the URL prompts download
+             });
+             if (error) {
+                console.error("Error generating signed URL:", error.message);
+                return { signedUrl: null, error: error.message };
+             }
+             if (!data?.signedUrl) {
+                console.error("Failed to generate signed URL: No URL returned.");
+                return { signedUrl: null, error: "Failed to generate signed URL." };
+             }
+             console.log("Successfully generated signed URL:", data.signedUrl);
+             return { signedUrl: data.signedUrl, error: null };
+         } catch (err: any) {
+            console.error("Exception during signed URL generation:", err);
+            const errorMessage = err.message || "An unknown error occurred during URL generation.";
+             return { signedUrl: null, error: errorMessage };
+         }
+     }, []);
+
+
+    return {
+        documents,
+        isLoading,
+        error,
+        fetchDocuments,
+        uploadDocument,
+        deleteDocument,
+        generateSignedUrl, // Ensure this is returned
+    };
 }

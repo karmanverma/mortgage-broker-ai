@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   MoreHorizontal,
   Edit,
@@ -25,14 +25,13 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"; // <-- Import AlertDialog components
+} from "@/components/ui/alert-dialog";
 import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
-import { useLenders } from "@/hooks/useLenders"; // <-- Assuming Lender type is exported here or import separately
-import { Lender } from "@/integrations/supabase/types"; // Assuming Lender type is defined here
-import { useLenderDocuments } from "@/hooks/useLenderDocuments";
+import { useLenders } from "@/hooks/useLenders";
+import { Lender } from "@/integrations/supabase/types";
 
 interface LenderTableRowProps {
   lender: Lender;
@@ -47,25 +46,16 @@ export const LenderTableRow = ({
   toggleLenderSelection,
   handleOpenManageDocuments,
 }: LenderTableRowProps) => {
-  const { deleteLender } = useLenders(); // Get the delete function
-  const { documents } = useLenderDocuments();
-  const [docCount, setDocCount] = useState(0);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false); // <-- State for delete dialog
-
-  // This effect calculates the document count.
-  // It might need adjustment if the `documents` from the hook don't update reliably.
-  useEffect(() => {
-      const count = documents.filter(d => d.lender_id === lender.id).length;
-      setDocCount(count);
-  }, [lender.id, documents]);
+  const { deleteLender } = useLenders();
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const handleDeleteClick = () => {
-    setIsDeleteDialogOpen(true); // Open the confirmation dialog
+    setIsDeleteDialogOpen(true);
   };
 
   const confirmDelete = () => {
-    deleteLender(lender.id, lender.name); // Call the hook's delete function
-    setIsDeleteDialogOpen(false); // Close the dialog
+    deleteLender(lender.id, lender.name);
+    setIsDeleteDialogOpen(false);
   };
 
   return (
@@ -104,12 +94,13 @@ export const LenderTableRow = ({
           </Badge>
         </TableCell>
         <TableCell
-          className="cursor-pointer hover:text-blue-600 hover:underline"
+          className="cursor-pointer hover:underline" // Removed hover:text-blue-600, keep hover:underline
           onClick={() => handleOpenManageDocuments(lender)}
           title={`Manage documents for ${lender.name}`}
         >
-          <span className="text-sm text-gray-500">
-            {docCount} docs
+          {/* Removed text-blue-500 class */}
+          <span className="text-sm font-medium">
+            Manage
           </span>
         </TableCell>
         <TableCell className="text-right">
@@ -131,8 +122,8 @@ export const LenderTableRow = ({
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                className="text-red-600 focus:text-red-700 focus:bg-red-50" // Style focus state
-                onClick={handleDeleteClick} // <-- Use the handler to open dialog
+                className="text-red-600 focus:text-red-700 focus:bg-red-50"
+                onClick={handleDeleteClick}
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Delete Lender
@@ -156,7 +147,7 @@ export const LenderTableRow = ({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
-              className="bg-red-600 hover:bg-red-700" // Simple destructive styling
+              className="bg-red-600 hover:bg-red-700"
             >
               Delete
             </AlertDialogAction>

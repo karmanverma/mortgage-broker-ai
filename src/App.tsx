@@ -20,10 +20,12 @@ import ForgotPassword from "./pages/auth/ForgotPassword";
 import Dashboard from "./pages/app/Dashboard";
 import Lenders from "./pages/app/Lenders";
 import AIAssistant from "./pages/app/AIAssistant";
+// Removed AIAssist import
 import Account from "./pages/app/Account";
 // Import Client Pages
 import ClientsPage from "./pages/app/clients/ClientsPage";
 import ClientDetailPage from "./pages/app/clients/ClientDetailPage";
+import LibraryPage from "./pages/app/Library"; // Import the new Library page
 
 
 // Layout components
@@ -37,7 +39,7 @@ const App = () => (
     <TooltipProvider>
       {/* SessionContextProvider is likely inside AuthProvider, remove from here */}
       <BrowserRouter>
-        <AuthProvider> 
+        <AuthProvider>
           {/* AuthProvider should now handle Supabase client initialization and context */} 
           <Toaster />
           <Sonner />
@@ -57,6 +59,8 @@ const App = () => (
               <Route index element={<Dashboard />} />
               <Route path="lenders" element={<Lenders />} />
               <Route path="assistant" element={<AIAssistant />} />
+              {/* Removed assist route */}
+              <Route path="library" element={<LibraryPage />} /> {/* Add Library route */}
               <Route path="account" element={<Account />} />
               {/* Client Routes */}
               <Route path="clients" element={<ClientsPage />} />
