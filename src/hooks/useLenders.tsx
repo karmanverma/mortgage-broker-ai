@@ -1,73 +1,77 @@
-import { useState, useCallback } from 'react'; // Import useCallback
-import { supabase } from '@/integrations/supabase/client';
+// src/hooks/useLenders.tsx
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client'; // Import the configured client
+import { Lender } from '@/integrations/supabase/types';
+import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from '@/components/ui/use-toast';
-import { Tables } from '@/integrations/supabase/types';
 
-export type Lender = Tables<'lenders'>;
-
-export type NewLender = {
+export interface NewLenderData {
   name: string;
   type: string;
-  contactName: string;
-  contactEmail: string;
+  contactName?: string;
+  contactEmail?: string;
   contactPhone?: string;
-  status: string;
+  status?: string;
   notes?: string;
-};
+}
 
 export function useLenders() {
-  const [lenders, setLenders] = useState<Lender[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
+  const { toast } = useToast();
+  const [lenders, setLenders] = useState<Lender[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // --- Modification: Wrap fetchLenders in useCallback ---
   const fetchLenders = useCallback(async () => {
-    console.log("useLenders: fetchLenders called");
+    // ... (fetchLenders implementation remains the same)
     if (!user) {
-        console.log("useLenders: No user, returning");
-        setLenders([]); // Clear lenders if no user
-        setIsLoading(false);
-        return;
+      console.log("useLenders: No user found, skipping fetch.");
+      return;
     }
 
-    console.log(`useLenders: Fetching lenders for user ${user.id}`);
+    console.log("useLenders: Fetching lenders for user:", user.id);
     setIsLoading(true);
+    setError(null);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supabase // Use the imported supabase client
         .from('lenders')
         .select('*')
-        .eq('user_id', user.id)
-        .order('name', { ascending: true });
+        .eq('user_id', user.id);
 
       if (error) throw error;
 
+      console.log("useLenders: Fetched lenders data:", data);
       setLenders(data || []);
-      console.log(`useLenders: Successfully fetched ${data?.length || 0} lenders.`);
-
-    } catch (error: any) {
-      console.error('Error fetching lenders:', error);
+    } catch (err: any) {
+      console.error("useLenders: Error fetching lenders:", err);
+      setError(err.message || 'Failed to fetch lenders');
       toast({
+        title: "Error",
+        description: "Could not fetch lenders.",
         variant: "destructive",
-        title: "Failed to load lenders",
-        description: error.message,
       });
-      setLenders([]); // Clear lenders on error
     } finally {
-        console.log("useLenders: fetchLenders finished, setting isLoading false");
       setIsLoading(false);
     }
-    // Dependencies: user, supabase (stable), toast (stable), setIsLoading, setLenders (stable)
-  }, [user, toast]);
+  }, [toast, user]);
 
-  // --- Modification: Wrap addLender in useCallback ---
-  const addLender = useCallback(async (newLender: NewLender) => {
-    if (!user) return null;
+  useEffect(() => {
+    fetchLenders();
+  }, [fetchLenders]);
 
+  const addLender = async (newLender: NewLenderData) => {
+    // ... (addLender implementation remains the same)
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to add a lender.",
+        variant: "destructive",
+      });
+      return;
+    }
     console.log(`useLenders: Adding new lender: ${newLender.name}`);
-    // Note: We don't set isLoading here, assuming the page handles loading state
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supabase // Use the imported supabase client
         .from('lenders')
         .insert({
           name: newLender.name,
@@ -89,119 +93,62 @@ export function useLenders() {
         description: `${newLender.name} has been added successfully.`,
       });
 
-      // Update state directly instead of calling fetchLenders to avoid potential race conditions
-      // and ensure the UI updates immediately.
-      setLenders(prevLenders => [...prevLenders, data].sort((a, b) => a.name.localeCompare(b.name)));
-      console.log(`useLenders: Lender added and local state updated.`);
-      // await fetchLenders(); // Replaced with direct state update
-      return data;
+      await fetchLenders();
 
-    } catch (error: any) {
-      console.error('Error adding lender:', error);
+    } catch (err: any) {
+      console.error("useLenders: Error adding lender:", err);
+      setError(err.message || 'Failed to add lender');
       toast({
+        title: "Error",
+        description: `Could not add lender ${newLender.name}.`,
         variant: "destructive",
-        title: "Failed to add lender",
-        description: error.message,
       });
-      return null;
     }
-    // Dependencies: user, toast, fetchLenders (stable now), setLenders (stable)
-  }, [user, toast, setLenders]); // Removed fetchLenders, added setLenders
+  };
 
-  // --- Modification: Wrap updateLender in useCallback ---
-  const updateLender = useCallback(async (id: string, updates: Partial<Omit<NewLender, 'id'>>) => {
-    if (!user) return null;
-
-    console.log(`useLenders: Updating lender ID: ${id}`);
-    try {
-      const updateData: Record<string, any> = {};
-
-      if (updates.name) updateData.name = updates.name;
-      if (updates.type) updateData.type = updates.type;
-      if (updates.contactName) updateData.contact_name = updates.contactName;
-      if (updates.contactEmail) updateData.contact_email = updates.contactEmail;
-      if (updates.contactPhone !== undefined) updateData.contact_phone = updates.contactPhone;
-      if (updates.status) updateData.status = updates.status;
-      if (updates.notes !== undefined) updateData.notes = updates.notes;
-
-      const { data, error } = await supabase
-        .from('lenders')
-        .update(updateData)
-        .eq('id', id)
-        .eq('user_id', user.id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
+  // *** ADD DELETE LENDER FUNCTION ***
+  const deleteLender = async (lenderId: string, lenderName?: string) => {
+    if (!user) {
       toast({
-        title: "Lender Updated",
-        description: `The lender has been updated successfully.`,
-      });
-
-      // Update state directly
-      setLenders(prevLenders =>
-        prevLenders.map(l => l.id === id ? data : l).sort((a, b) => a.name.localeCompare(b.name))
-      );
-      console.log(`useLenders: Lender updated and local state updated.`);
-      // await fetchLenders(); // Replaced with direct state update
-      return data;
-
-    } catch (error: any) {
-      console.error('Error updating lender:', error);
-      toast({
+        title: "Error",
+        description: "You must be logged in to delete a lender.",
         variant: "destructive",
-        title: "Failed to update lender",
-        description: error.message,
       });
-      return null;
+      return;
     }
-     // Dependencies: user, toast, fetchLenders (stable now), setLenders (stable)
-  }, [user, toast, setLenders]); // Removed fetchLenders, added setLenders
-
-  // --- Modification: Wrap deleteLender in useCallback ---
-  const deleteLender = useCallback(async (id: string) => {
-    if (!user) return false;
-
-    console.log(`useLenders: Deleting lender ID: ${id}`);
+    const nameToDelete = lenderName || `Lender ID ${lenderId}`;
+    console.log(`useLenders: Deleting lender with ID: ${lenderId}`);
     try {
-      const { error } = await supabase
+      const { error } = await supabase // Use the imported supabase client
         .from('lenders')
         .delete()
-        .eq('id', id)
-        .eq('user_id', user.id);
+        .match({ id: lenderId, user_id: user.id }); // Match both ID and user_id for security
 
       if (error) throw error;
 
       toast({
         title: "Lender Deleted",
-        description: "The lender has been deleted successfully.",
+        description: `${nameToDelete} has been deleted successfully.`,
       });
 
-       // Update state directly
-      setLenders(prevLenders => prevLenders.filter(l => l.id !== id));
-      console.log(`useLenders: Lender deleted and local state updated.`);
-      // await fetchLenders(); // Replaced with direct state update
-      return true;
+      // Refresh the list after successful deletion
+      // Option 1: Refetch from server
+      await fetchLenders();
 
-    } catch (error: any) {
-      console.error('Error deleting lender:', error);
+      // Option 2: Update state locally (faster UI, assumes success)
+      // setLenders(prevLenders => prevLenders.filter(lender => lender.id !== lenderId));
+
+    } catch (err: any) {
+      console.error("useLenders: Error deleting lender:", err);
+      setError(err.message || 'Failed to delete lender');
       toast({
+        title: "Error",
+        description: `Could not delete ${nameToDelete}. ${err.message}`,
         variant: "destructive",
-        title: "Failed to delete lender",
-        description: error.message,
       });
-      return false;
     }
-     // Dependencies: user, toast, fetchLenders (stable now), setLenders (stable)
-  }, [user, toast, setLenders]); // Removed fetchLenders, added setLenders
-
-  return {
-    lenders,
-    isLoading,
-    fetchLenders,
-    addLender,
-    updateLender,
-    deleteLender
   };
+
+
+  return { lenders, isLoading, error, addLender, deleteLender, fetchLenders }; // Add deleteLender to return object
 }
