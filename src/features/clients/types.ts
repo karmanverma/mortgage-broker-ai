@@ -1,6 +1,6 @@
 
 import { z } from 'zod';
-import { Tables } from '@/integrations/supabase/types';
+import { Tables, TablesInsert } from '@/integrations/supabase/types';
 
 // Options for Select components
 export const employmentStatusOptions = [
