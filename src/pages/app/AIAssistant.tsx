@@ -31,6 +31,21 @@ const AIAssistantPage: React.FC = () => {
   const [isWaitingForAI, setIsWaitingForAI] = useState(false);
   const [contextPanelOpen, setContextPanelOpen] = useState(!isMobile);
   const [conversationSidebarOpen, setConversationSidebarOpen] = useState(false);
+  const [messageContext, setMessageContext] = useState<{
+    selectedClientId?: string;
+    selectedLenderIds: string[];
+    selectedDocumentIds: string[];
+  }>({
+    selectedLenderIds: [],
+    selectedDocumentIds: [],
+  });
+
+  const [messageSuggestions] = useState([
+    "Show me this client's loan application status",
+    "Compare rates from selected lenders",
+    "What documents are still needed?",
+    "Summarize client's financial profile"
+  ]);
 
   useEffect(() => {
     setContextPanelOpen(!isMobile);
@@ -51,7 +66,14 @@ const AIAssistantPage: React.FC = () => {
       const response = await fetch(n8nWebhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, userEmail: user.email, sessionId: currentSessionId, message: userMessage, history: historyForWebhook }),
+        body: JSON.stringify({ 
+          userId: user.id, 
+          userEmail: user.email, 
+          sessionId: currentSessionId, 
+          message: userMessage, 
+          history: historyForWebhook,
+          context: messageContext
+        }),
       });
       if (!response.ok) {
         const errorBody = await response.text();
@@ -69,7 +91,7 @@ const AIAssistantPage: React.FC = () => {
       toast({ variant: "destructive", title: "AI Communication Error", description: error instanceof Error ? error.message : "Could not reach AI assistant." });
       return null;
     }
-  }, [user, currentSessionId, n8nWebhookUrl]);
+  }, [user, currentSessionId, n8nWebhookUrl, messageContext]);
 
   const handleSendMessage = useCallback(async (e?: React.FormEvent | React.KeyboardEvent) => {
     if (e && 'preventDefault' in e) e.preventDefault();
@@ -203,10 +225,12 @@ ${msg.message}`;
           onSaveAsPdf={handleSaveAsPdf}
           onCopyToClipboard={handleCopyToClipboard}
           onPrint={handlePrint}
+          messageSuggestions={messageSuggestions}
         />
         <ContextPanel
           contextPanelOpen={contextPanelOpen}
           setContextPanelOpen={setContextPanelOpen}
+          onContextChange={setMessageContext}
         />
       </div>
     </div>
