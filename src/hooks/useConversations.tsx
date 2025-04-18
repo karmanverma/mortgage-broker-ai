@@ -171,16 +171,14 @@ export const useConversations = () => {
       toast({ variant: "destructive", title: `Database Error`, description: `Could not save ${sender} message: ${err.message}` });
       return null;
     }
-  }, [user, currentSessionId, conversationList]); // conversationList is needed
+  }, [user, currentSessionId, conversationList]);
 
-  // --- Delete Conversation --- NEW FUNCTION
   const deleteConversation = useCallback(async (sessionIdToDelete: string) => {
     if (!user) {
         toast({ variant: "destructive", title: "Error", description: "User not logged in." });
         return;
     }
 
-    // console.log("Attempting to delete session:", sessionIdToDelete);
     try {
         const { error: deleteError } = await supabase
             .from('conversations')
@@ -192,27 +190,17 @@ export const useConversations = () => {
             throw deleteError;
         }
 
-        // console.log("Successfully deleted session from DB:", sessionIdToDelete);
         toast({ title: "Chat Deleted", description: "The conversation has been removed." });
 
-        // Remove from the local list state
         const updatedList = conversationList.filter(c => c.session_id !== sessionIdToDelete);
         setConversationList(updatedList);
 
-        // If the deleted conversation was the active one, switch to another or start new
         if (currentSessionId === sessionIdToDelete) {
             if (updatedList.length > 0) {
-                // Switch to the now most recent one
-                // console.log("Switching to new most recent session:", updatedList[0].session_id);
                 setCurrentSessionId(updatedList[0].session_id);
             } else {
-                // No conversations left, start a new one
-                // console.log("No conversations left, starting new one.");
                 startNewConversation();
             }
-        } else {
-            // If a different chat was deleted, no need to change the active one,
-            // but ensure the list update is reflected.
         }
 
     } catch (err: any) {
@@ -223,10 +211,8 @@ export const useConversations = () => {
             description: err.message || "Could not delete the conversation."
         });
     }
-}, [user, conversationList, currentSessionId, startNewConversation]); // Added dependencies
+}, [user, conversationList, currentSessionId, startNewConversation]);
 
-
-  // --- Return Values ---
   return {
     messages,
     conversationList,
@@ -238,6 +224,6 @@ export const useConversations = () => {
     startNewConversation,
     setActiveConversation,
     fetchMessages,
-    deleteConversation, // Expose the delete function
+    deleteConversation,
   };
 };

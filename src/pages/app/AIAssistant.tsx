@@ -10,7 +10,6 @@ import ConversationSidebar from '@/components/ai-assistant/ConversationSidebar';
 import MainChatArea from '@/components/ai-assistant/MainChatArea';
 import ContextPanel from '@/components/ai-assistant/ContextPanel';
 
-
 const AIAssistantPage: React.FC = () => {
   const { user } = useAuth();
   const isMobile = useIsMobile();
@@ -25,7 +24,7 @@ const AIAssistantPage: React.FC = () => {
     addMessage,
     startNewConversation,
     fetchMessages,
-    deleteConversation, // Get the delete function from the hook
+    deleteConversation,
   } = useConversations();
 
   const [newMessage, setNewMessage] = useState("");
@@ -43,7 +42,6 @@ const AIAssistantPage: React.FC = () => {
   const n8nWebhookUrl = "https://n8n.srv783065.hstgr.cloud/webhook/0d7564b0-45e8-499f-b3b9-b136386319e5/chat";
 
   const getAIResponse = useCallback(async (userMessage: string, history: Conversation[]): Promise<string | null> => {
-    // ... (getAIResponse implementation)
     if (!user || !currentSessionId) {
         toast({ variant: "destructive", title: "Error", description: "User or Session ID missing." });
         return null;
@@ -74,7 +72,6 @@ const AIAssistantPage: React.FC = () => {
   }, [user, currentSessionId, n8nWebhookUrl]);
 
   const handleSendMessage = useCallback(async (e?: React.FormEvent | React.KeyboardEvent) => {
-    // ... (handleSendMessage implementation)
     if (e && 'preventDefault' in e) e.preventDefault();
     if (!newMessage.trim() || !user || !currentSessionId || isWaitingForAI) return;
 
@@ -118,7 +115,6 @@ const AIAssistantPage: React.FC = () => {
     setConversationSidebarOpen(false);
   };
 
-  // --- Action Handlers ---
   const handleDeleteConversation = useCallback(async () => {
     if (!currentSessionId || !deleteConversation) {
         toast({ variant: "destructive", title: "Error", description: "Cannot delete chat." });
@@ -139,19 +135,15 @@ const AIAssistantPage: React.FC = () => {
         toast({ title: "Nothing to Copy", description: "The chat is empty." });
         return;
     }
-    // Correct string construction
     const messageStrings = messages.map(msg => {
         const sender = msg.sender === 'user' ? 'You' : 'AI';
         const timestamp = new Date(msg.created_at).toLocaleString();
-        // Use template literals for multi-line strings
         return `${sender} (${timestamp}):
 ${msg.message}`;
     });
-    // Use template literal for join separator
     const chatText = messageStrings.join(`
 
-`); // Changed this line
-
+`);
     navigator.clipboard.writeText(chatText)
       .then(() => toast({ title: "Chat Copied", description: "Conversation copied to clipboard." }))
       .catch(err => {
@@ -167,7 +159,6 @@ ${msg.message}`;
 
   return (
     <div className="flex h-full bg-white overflow-hidden">
-      {/* Sidebar Components */}
       <div className={cn(`fixed inset-y-0 left-0 z-40 w-72 border-r bg-white transform transition-transform md:hidden`, conversationSidebarOpen ? "translate-x-0" : "-translate-x-full")}>
          <ConversationSidebar
             conversationList={conversationList}
@@ -190,34 +181,33 @@ ${msg.message}`;
          />
       </div>
 
-       {/* Main Content Area */}
       <div className="flex-1 flex min-w-0 overflow-hidden">
-           <MainChatArea
-                messages={messages}
-                isLoadingHistory={isLoadingHistory}
-                conversationError={conversationError}
-                currentSessionId={currentSessionId}
-                isWaitingForAI={isWaitingForAI}
-                user={user}
-                messagesEndRef={messagesEndRef}
-                textareaRef={textareaRef}
-                newMessage={newMessage}
-                setNewMessage={setNewMessage}
-                handleSendMessage={handleSendMessage}
-                handleKeyDown={handleKeyDown}
-                setConversationSidebarOpen={setConversationSidebarOpen}
-                fetchMessages={fetchMessages}
-                setContextPanelOpen={setContextPanelOpen}
-                contextPanelOpen={contextPanelOpen}
-                onDeleteConversation={handleDeleteConversation}
-                onSaveAsPdf={handleSaveAsPdf}
-                onCopyToClipboard={handleCopyToClipboard}
-                onPrint={handlePrint}
-            />
-           <ContextPanel
-                contextPanelOpen={contextPanelOpen}
-                setContextPanelOpen={setContextPanelOpen}
-            />
+        <MainChatArea
+          messages={messages}
+          isLoadingHistory={isLoadingHistory}
+          conversationError={conversationError}
+          currentSessionId={currentSessionId}
+          isWaitingForAI={isWaitingForAI}
+          user={user}
+          messagesEndRef={messagesEndRef}
+          textareaRef={textareaRef}
+          newMessage={newMessage}
+          setNewMessage={setNewMessage}
+          handleSendMessage={handleSendMessage}
+          handleKeyDown={handleKeyDown}
+          setConversationSidebarOpen={setConversationSidebarOpen}
+          fetchMessages={fetchMessages}
+          setContextPanelOpen={setContextPanelOpen}
+          contextPanelOpen={contextPanelOpen}
+          onDeleteConversation={handleDeleteConversation}
+          onSaveAsPdf={handleSaveAsPdf}
+          onCopyToClipboard={handleCopyToClipboard}
+          onPrint={handlePrint}
+        />
+        <ContextPanel
+          contextPanelOpen={contextPanelOpen}
+          setContextPanelOpen={setContextPanelOpen}
+        />
       </div>
     </div>
   );
