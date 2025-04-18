@@ -72,10 +72,13 @@ export const clientFormSchema = z.object({
 // TypeScript type derived from the schema
 export type ClientFormData = z.infer<typeof clientFormSchema>;
 
-// Client type including generated fields
+// Client type including generated fields and additional properties used in ClientsPage
 export type Client = ClientFormData & {
   id: string; 
   dateAdded: Date;
+  // Add missing properties used in ClientsPage
+  status?: string;
+  avatarUrl?: string;
 };
 
 // Add a utility function to map between Supabase DB format and our frontend format
@@ -97,7 +100,9 @@ export const mapDbClientToClient = (dbClient: Tables<"clients">): Client => {
     creditScoreRange: '<600' as const, // This will need mapping from actual credit_score
     applicationStatus: 'New' as const, // This needs to be added to the DB or retrieved from another source
     notes: '',
-    dateAdded: new Date(dbClient.created_at)
+    dateAdded: new Date(dbClient.created_at),
+    // Map additional properties
+    status: dbClient.status || 'active'
   };
 };
 

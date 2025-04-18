@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useConversations, Conversation } from '@/hooks/useConversations';
+import { useConversations } from '@/hooks/useConversations';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from "@/components/ui/use-toast";
@@ -11,6 +10,16 @@ import ContextPanel from '@/components/ai-assistant/ContextPanel';
 // Define the Message interface
 interface Message {
   sender: 'user' | 'ai';
+  message: string;
+  created_at: string;
+  id: string;
+  session_id: string;
+  user_id: string;
+}
+
+// Define the Conversation interface for type safety
+interface Conversation {
+  sender: string;
   message: string;
   created_at: string;
   id: string;
@@ -35,11 +44,12 @@ const AIAssistantPage: React.FC = () => {
     deleteConversation,
   } = useConversations();
 
+  // Convert apiMessages to match the Message interface, ensuring id is a string
   const messages: Message[] = (apiMessages || []).map(msg => ({
     sender: msg.sender as 'user' | 'ai',
     message: msg.message,
     created_at: msg.created_at,
-    id: msg.id,
+    id: String(msg.id), // Convert number to string
     session_id: msg.session_id,
     user_id: msg.user_id
   }));
