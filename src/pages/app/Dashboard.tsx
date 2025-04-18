@@ -157,21 +157,20 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
       </div>
 
+      {/* Top Stat Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Lenders</CardTitle><Building className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{lenders?.length ?? 0}</div><p className="text-xs text-muted-foreground">Active lenders</p></CardContent></Card>
-
         <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Clients</CardTitle><Users className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{clientsCount ?? 0}</div><p className="text-xs text-muted-foreground">Managed clients</p></CardContent></Card>
-
         <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Documents</CardTitle><FileText className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">154</div><p className="text-xs text-muted-foreground">2.1 GB used</p></CardContent></Card>
-
         <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Avg. Rate</CardTitle><TrendingUp className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">4.35%</div><p className="text-xs text-red-500">+0.15%</p></CardContent></Card>
       </div>
 
+      {/* Middle Section: Activity & Lenders */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
         <Card className="lg:col-span-4">
           <CardHeader><CardTitle>Recent Activity</CardTitle><CardDescription>Latest actions and updates</CardDescription></CardHeader>
@@ -231,6 +230,7 @@ const Dashboard = () => {
         </Card>
       </div>
 
+      {/* Bottom Action Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="hover:bg-gray-50 transition-colors cursor-pointer"><Link to="/app/clients" className="block p-6"><div className="flex flex-col items-center text-center space-y-2"><div className="p-2 bg-purple-100 rounded-full"><UserPlus className="h-6 w-6 text-purple-600" /></div><h3 className="font-medium">Add New Client</h3><p className="text-sm text-gray-500">Create a client record</p></div></Link></Card>
         <Card className="hover:bg-gray-50 transition-colors cursor-pointer"><Link to="/app/lenders" className="block p-6"><div className="flex flex-col items-center text-center space-y-2"><div className="p-2 bg-blue-100 rounded-full"><Building className="h-6 w-6 text-blue-600" /></div><h3 className="font-medium">Manage Lenders</h3><p className="text-sm text-gray-500">View/update lenders</p></div></Link></Card>

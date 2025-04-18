@@ -1,229 +1,338 @@
-import { useState, useEffect, useCallback } from 'react';
-import { v4 as uuidv4 } from 'uuid';
+import { useCallback, useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Database } from '@/integrations/supabase/types';
-import { toast } from '@/components/ui/use-toast';
+import { Conversation } from './useConversations.types';
+import { useToast } from "@/hooks/use-toast";
+import { v4 as uuidv4 } from 'uuid';
 
-// Define the Conversation type based on Supabase schema
-export type Conversation = Database['public']['Tables']['conversations']['Row'];
-
-// Type for the list of conversations (session IDs and last message time)
-export type ConversationInfo = {
-  session_id: string;
-  last_message_at: string;
-};
-
-export const useConversations = () => {
+export function useConversations() {
   const { user } = useAuth();
-  const [messages, setMessages] = useState<Conversation[]>([]);
-  const [conversationList, setConversationList] = useState<ConversationInfo[]>([]);
+  const { toast } = useToast();
+
+  // State for the list of unique conversation sessions
+  const [conversationList, setConversationList] = useState<Conversation[]>([]);
+  const [loadingList, setLoadingList] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
+
+  // State for the active conversation
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingList, setIsLoadingList] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Conversation[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [messageError, setMessageError] = useState<string | null>(null);
 
-  // --- Fetching Conversation List ---
+  // Fetch the list of unique conversation sessions
   const fetchConversationList = useCallback(async () => {
-    if (!user) {
-      setConversationList([]);
-      return;
-    }
-    setIsLoadingList(true);
-    setError(null);
+    if (!user) return;
+    setLoadingList(true);
+    setListError(null);
+    console.log("useConversations: Fetching conversation list for user:", user.id);
     try {
-      const { data, error: listError } = await supabase
-        .from('conversations')
-        .select('session_id, created_at')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabase
+        .rpc('get_latest_conversations_per_session', { user_uuid: user.id });
 
-      if (listError) throw listError;
+      if (error) throw error;
 
-      const sessionsMap = new Map<string, string>();
-      data.forEach(conv => {
-          if (!sessionsMap.has(conv.session_id) || new Date(conv.created_at) > new Date(sessionsMap.get(conv.session_id)!)) {
-              sessionsMap.set(conv.session_id, conv.created_at);
-          }
-      });
-
-      const uniqueSessions: ConversationInfo[] = Array.from(sessionsMap.entries())
-        .map(([session_id, last_message_at]) => ({ session_id, last_message_at }))
-        .sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime());
-
-      setConversationList(uniqueSessions);
+      console.log("useConversations: Fetched unique conversation list data:", data);
+      setConversationList(data as Conversation[] || []);
 
     } catch (err: any) {
-      console.error('Error fetching conversation list:', err);
-      setError('Failed to load conversation list.');
-      toast({ variant: "destructive", title: "Error Loading Chats", description: err.message || 'Could not fetch past conversations.' });
-      setConversationList([]);
+      console.error("useConversations: Error fetching conversation list:", err);
+      setListError(err.message || 'Failed to fetch conversation list');
+      toast({
+        title: "Error",
+        description: "Could not fetch conversation list.",
+        variant: "destructive",
+      });
     } finally {
-      setIsLoadingList(false);
+      setLoadingList(false);
     }
-  }, [user]);
+  }, [user, toast]);
 
-  useEffect(() => {
-    fetchConversationList();
-  }, [user, fetchConversationList]);
 
-  // --- Managing Active Conversation ---
-  const startNewConversation = useCallback(() => {
-    if (user) {
-      const newSessionId = uuidv4();
-      setCurrentSessionId(newSessionId);
+  // Fetch messages for a specific session_id
+  const fetchMessages = useCallback(async (sessionId: string | null) => {
+    if (!user || !sessionId) {
       setMessages([]);
-      setError(null);
-      // Don't add to list until first message is sent
-    } else {
-      setError("Cannot start conversation: User not logged in.");
+      return;
     }
-  }, [user]);
-
-  useEffect(() => {
-      if (user && !currentSessionId && !isLoadingList && conversationList.length > 0) {
-          setCurrentSessionId(conversationList[0].session_id);
-      } else if (user && !currentSessionId && !isLoadingList && conversationList.length === 0) {
-          startNewConversation();
-      }
-  }, [user, currentSessionId, conversationList, isLoadingList, startNewConversation]);
-
-  const setActiveConversation = useCallback((sessionId: string) => {
-    if (sessionId !== currentSessionId) {
-      setMessages([]);
-      setCurrentSessionId(sessionId);
-      setError(null);
-    }
-  }, [currentSessionId]);
-
-  const fetchMessages = useCallback(async () => {
-    if (!user || !currentSessionId) {
-        setMessages([]);
-        return;
-    }
-    setIsLoading(true);
-    setError(null);
+    setLoadingMessages(true);
+    setMessageError(null);
+    console.log(`useConversations: Fetching messages for session: ${sessionId}`);
     try {
-      const { data, error: fetchError } = await supabase
+      const { data, error } = await supabase
         .from('conversations')
         .select('*')
         .eq('user_id', user.id)
-        .eq('session_id', currentSessionId)
+        .eq('session_id', sessionId)
         .order('created_at', { ascending: true });
 
-      if (fetchError) throw fetchError;
+      if (error) throw error;
+
+      console.log(`useConversations: Fetched ${data?.length} messages for session ${sessionId}`);
       setMessages(data || []);
     } catch (err: any) {
-      console.error('Error fetching messages:', err);
-      setError('Failed to load conversation history.');
-      toast({ variant: "destructive", title: "Error Loading History", description: err.message || 'Could not fetch messages.' });
-      setMessages([]);
+      console.error(`useConversations: Error fetching messages for session ${sessionId}:`, err);
+      setMessageError(err.message || 'Failed to fetch messages');
+      toast({
+        title: "Error",
+        description: `Could not fetch messages for the selected conversation. ${err.message}`,
+        variant: "destructive",
+      });
+       setMessages([]);
     } finally {
-      setIsLoading(false);
+      setLoadingMessages(false);
     }
-  }, [user, currentSessionId]);
+  }, [user, toast]);
 
+  // Effect to fetch the conversation list on user change
   useEffect(() => {
-    if (currentSessionId) {
-        fetchMessages();
-    } else {
+    fetchConversationList();
+  }, [fetchConversationList]);
+
+  // Effect to fetch messages when the active session changes
+  useEffect(() => {
+      if (currentSessionId) {
+        console.log(`useConversations: Active session changed to ${currentSessionId}, fetching messages...`);
+        fetchMessages(currentSessionId);
+      } else {
+        console.log("useConversations: No active session, clearing messages.");
         setMessages([]);
-    }
+      }
   }, [currentSessionId, fetchMessages]);
 
-  const addMessage = useCallback(async (messageContent: string, sender: 'user' | 'ai'): Promise<Conversation | null> => {
-    if (!user || !currentSessionId) {
-      setError('User not authenticated or session not active.');
-      toast({ variant: "destructive", title: "Cannot Send Message", description: "No active session or user not logged in." });
+  // Add a message to the active or specified session
+  const addMessage = async (
+    messageContent: string,
+    senderType: 'user' | 'ai',
+    sessionId: string // Explicitly require session ID
+  ): Promise<Conversation | null> => {
+    if (!user || !sessionId) {
+      toast({ variant: "destructive", title: "Error", description: "Cannot send message: User or Session ID missing." });
       return null;
     }
-    setError(null);
-
-    const newMessageData = { user_id: user.id, session_id: currentSessionId, message: messageContent, sender: sender };
-
+    console.log(`useConversations: Adding ${senderType} message to session ${sessionId}`);
     try {
-      const { data, error: insertError } = await supabase
+      const newMessage: Omit<Conversation, 'id' | 'created_at'> = {
+        user_id: user.id,
+        session_id: sessionId, // Use the provided session ID
+        message: messageContent,
+        sender: senderType,
+      };
+
+      const { data, error } = await supabase
         .from('conversations')
-        .insert(newMessageData)
-        .select()
+        .insert(newMessage)
+        .select('*')
         .single();
 
-      if (insertError) throw insertError;
-      if (!data) throw new Error('Supabase insert did not return data.');
+      if (error) throw error;
 
-      setMessages((prevMessages) => [...prevMessages, data]);
+      if (data) {
+        console.log(`useConversations: Message added successfully to session ${sessionId}:`, data);
+        // Update messages only if the message belongs to the currently active session
+        if (sessionId === currentSessionId) {
+          setMessages(prevMessages => [...prevMessages, data as Conversation]);
+        }
 
-      const sessionExists = conversationList.some(c => c.session_id === currentSessionId);
-      const updatedList = [
-            { session_id: currentSessionId, last_message_at: data.created_at },
-            ...conversationList.filter(c => c.session_id !== currentSessionId)
-        ];
+        // Update the conversation list: Add if new, update timestamp if existing
+        setConversationList(prevList => {
+            const existingConvIndex = prevList.findIndex(conv => conv.session_id === sessionId);
+            let newList: Conversation[]; // <-- Corrected type annotation
+            if (existingConvIndex > -1) {
+                // Update existing conversation's timestamp
+                newList = prevList.map((conv, index) =>
+                    index === existingConvIndex ? { ...conv, created_at: data.created_at, message: data.message, sender: data.sender } : conv
+                );
+            } else {
+                // Add new conversation (this happens when the first message is saved)
+                newList = [...prevList, data as Conversation];
+            }
+            // Remove temporary placeholder if it exists
+            newList = newList.filter(conv => !String(conv.id).startsWith('temp-')); // <-- Applied fix here
+            // Sort by the latest message timestamp
+            return newList.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        });
 
-      // Ensure list is sorted correctly after update/add
-      updatedList.sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime());
-      setConversationList(updatedList);
-
-      return data;
+        return data as Conversation;
+      }
+      return null;
 
     } catch (err: any) {
-      console.error(`Failed to save ${sender} message to database:`, err);
-      setError(`Failed to save ${sender} message.`);
-      toast({ variant: "destructive", title: `Database Error`, description: `Could not save ${sender} message: ${err.message}` });
+      console.error(`useConversations: Error adding message to session ${sessionId}:`, err);
+      toast({
+        title: "Error Sending Message",
+        description: err.message || "Could not save your message.",
+        variant: "destructive",
+      });
+      setMessageError(err.message || 'Failed to send message');
       return null;
     }
-  }, [user, currentSessionId, conversationList]);
+  };
 
-  const deleteConversation = useCallback(async (sessionIdToDelete: string) => {
-    if (!user) {
-        toast({ variant: "destructive", title: "Error", description: "User not logged in." });
-        return;
+  // Start a new conversation session (locally first)
+   const startNewConversation = async (): Promise<Conversation | null> => {
+        if (!user) return null;
+        console.log("useConversations: Starting new conversation...");
+        try {
+            const newSessionId = uuidv4();
+
+            // Create a temporary representation for the sidebar
+             const tempNewConv: Conversation = {
+                 id: `temp-${newSessionId}`, // Use a temporary, distinguishable ID
+                 user_id: user.id,
+                 created_at: new Date().toISOString(),
+                 session_id: newSessionId,
+                 message: "New Chat Started...", // Placeholder message
+                 sender: undefined,
+             };
+
+            // Add to list optimistically & sort
+            setConversationList(prev => [tempNewConv, ...prev]
+                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+
+            setCurrentSessionId(newSessionId); // Set the new session as active
+             setMessages([]); // Clear messages for the new session
+             setMessageError(null); // Clear any previous message errors
+             setLoadingMessages(false); // Ensure loading is false for the new empty session
+
+            console.log("useConversations: New conversation started locally with session ID:", newSessionId);
+            // --- TOAST REMOVED --- 
+
+             // Return the temporary conversation object; it will be updated when the first message is added
+             return tempNewConv;
+
+        } catch (err: any) {
+            console.error("useConversations: Error starting new conversation:", err);
+            toast({
+                title: "Error",
+                description: err.message || "Could not start a new conversation.",
+                variant: "destructive",
+            });
+            setListError(err.message || 'Failed to start conversation');
+            return null;
+        } finally {
+            // Reset specific loading state if used
+        }
+    };
+
+
+  // Delete a conversation session
+  const deleteConversation = async (sessionId: string): Promise<{ success: boolean; error?: string }> => {
+    if (!user || !sessionId) {
+      const errorMsg = "User not authenticated or Session ID missing for deletion.";
+      console.error("useConversations:", errorMsg);
+      return { success: false, error: errorMsg };
     }
 
+    console.log(`useConversations: Deleting conversation session: ${sessionId}`);
     try {
-        const { error: deleteError } = await supabase
-            .from('conversations')
-            .delete()
-            .eq('user_id', user.id)
-            .eq('session_id', sessionIdToDelete);
+      const { error: deleteError } = await supabase
+        .from('conversations')
+        .delete()
+        .eq('session_id', sessionId)
+        .eq('user_id', user.id);
 
-        if (deleteError) {
-            throw deleteError;
-        }
+      if (deleteError) throw deleteError;
 
-        toast({ title: "Chat Deleted", description: "The conversation has been removed." });
+      console.log(`useConversations: Conversation session ${sessionId} deleted successfully from DB.`);
 
-        const updatedList = conversationList.filter(c => c.session_id !== sessionIdToDelete);
-        setConversationList(updatedList);
+      // Update state: remove the conversation from the list
+      setConversationList(prevList =>
+        prevList.filter(conv => conv.session_id !== sessionId)
+      );
 
-        if (currentSessionId === sessionIdToDelete) {
-            if (updatedList.length > 0) {
-                setCurrentSessionId(updatedList[0].session_id);
-            } else {
-                startNewConversation();
-            }
-        }
+      // If the deleted conversation was the active one, clear active state
+      if (currentSessionId === sessionId) {
+        setCurrentSessionId(null);
+        setMessages([]);
+        setMessageError(null);
+      }
+
+      toast({
+        title: "Conversation Deleted",
+        description: "The conversation has been deleted successfully.",
+      });
+      return { success: true };
 
     } catch (err: any) {
-        console.error("Error deleting conversation:", err);
-        toast({
-            variant: "destructive",
-            title: "Deletion Failed",
-            description: err.message || "Could not delete the conversation."
-        });
+      console.error("useConversations: Error deleting conversation session:", err);
+      const errorMessage = err.message || 'Failed to delete conversation.';
+      toast({
+        title: "Error Deleting Conversation",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      setListError(errorMessage); // Use list error state
+      return { success: false, error: errorMessage };
     }
-}, [user, conversationList, currentSessionId, startNewConversation]);
+  };
 
+  // Function to explicitly set the active conversation
+   const setActiveConversation = useCallback((sessionId: string | null) => {
+       console.log(`useConversations: Setting active conversation to session ID: ${sessionId}`);
+       if (sessionId !== currentSessionId) {
+           setCurrentSessionId(sessionId);
+           // Fetching messages is handled by the useEffect watching currentSessionId
+       }
+   }, [currentSessionId]);
+
+
+  // Return values including message state and handlers
   return {
-    messages,
-    conversationList,
+    // Conversation List related
+    conversations: conversationList, // Renamed state variable
+    loading: loadingList, // Renamed state variable
+    error: listError, // Renamed state variable
+    fetchConversations: fetchConversationList, // Renamed function
+
+    // Active Conversation (Messages) related
     currentSessionId,
-    isLoading,
-    isLoadingList,
-    error,
-    addMessage,
+    setActiveConversation, // New function added
+    messages, // Direct access to messages of the active session
+    isLoading: loadingMessages, // Renamed state variable for message loading
+    messageError, // New state variable for message errors
+    fetchMessages, // Keep fetchMessages if needed externally (e.g., manual refresh)
+    addMessage, // Updated function signature
+
+    // Actions
     startNewConversation,
-    setActiveConversation,
-    fetchMessages,
     deleteConversation,
   };
-};
+}
+
+
+// Add the Supabase RPC function (run this in your Supabase SQL editor)
+/*
+-- Function to get the latest conversation entry for each session_id for a specific user
+CREATE OR REPLACE FUNCTION get_latest_conversations_per_session(user_uuid UUID)
+RETURNS TABLE (
+    id BIGINT,
+    user_id UUID,
+    message TEXT,
+    sender TEXT,
+    created_at TIMESTAMPTZ,
+    session_id UUID
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT DISTINCT ON (c.session_id)
+        c.id,
+        c.user_id,
+        c.message,
+        c.sender,
+        c.created_at,
+        c.session_id
+    FROM
+        conversations c
+    WHERE
+        c.user_id = user_uuid
+    ORDER BY
+        c.session_id, c.created_at DESC;
+END;
+$$;
+
+-- Grant execution permission to the authenticated role
+GRANT EXECUTE ON FUNCTION get_latest_conversations_per_session(UUID) TO authenticated;
+*/

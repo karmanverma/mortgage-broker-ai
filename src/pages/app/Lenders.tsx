@@ -2,12 +2,12 @@ import { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLenders } from "@/hooks/useLenders";
-import { useLenderDocuments } from "@/hooks/useLenderDocuments";
+// import { useLenderDocuments } from "@/hooks/useLenderDocuments"; // Document hook now used within ManageDocumentsDialog
 
 import { LenderSearch } from "@/components/lenders/LenderSearch";
 import { LendersList } from "@/components/lenders/LendersList";
 import { AddLenderForm } from "@/components/lenders/AddLenderForm";
-import { DocumentUploadDialog } from "@/components/lenders/DocumentUploadDialog";
+import ManageDocumentsDialog from "@/components/lenders/ManageDocumentsDialog"; // Import the new dialog
 import { Tables } from "@/integrations/supabase/types";
 
 type Lender = Tables<'lenders'>;
@@ -23,11 +23,10 @@ const Lenders = () => {
   const [selectedStatus, setSelectedStatus] = useState<string>("");
   const [selectedLenders, setSelectedLenders] = useState<string[]>([]);
   const [isAddLenderOpen, setIsAddLenderOpen] = useState(false);
-  const [isUploadDocumentOpen, setIsUploadDocumentOpen] = useState(false);
-  const [activeDocumentLender, setActiveDocumentLender] = useState<Lender | null>(null);
+  const [isManageDocsOpen, setIsManageDocsOpen] = useState(false); // State for new dialog
+  const [activeLenderForDocs, setActiveLenderForDocs] = useState<Lender | null>(null); // State for lender context
 
   const { lenders, isLoading: lendersLoading, fetchLenders } = useLenders();
-  const { fetchDocuments } = useLenderDocuments();
 
   useEffect(() => {
     console.log("Lenders.tsx: Fetching lenders...");
@@ -67,10 +66,11 @@ const Lenders = () => {
     setSelectedStatus("");
   };
 
-  const handleOpenDocumentUpload = (lender: Lender) => {
-    console.log(`Lenders.tsx: Opening document upload for lender ID: ${lender.id}`);
-    setActiveDocumentLender(lender);
-    setIsUploadDocumentOpen(true);
+  // Function to open the new Manage Documents dialog
+  const handleOpenManageDocuments = (lender: Lender) => {
+    console.log(`Lenders.tsx: Opening manage documents for lender ID: ${lender.id}`);
+    setActiveLenderForDocs(lender);
+    setIsManageDocsOpen(true);
   };
 
   const isLoading = lendersLoading;
@@ -104,7 +104,7 @@ const Lenders = () => {
         selectedLenders={selectedLenders}
         toggleLenderSelection={toggleLenderSelection}
         selectAll={selectAll}
-        handleOpenDocumentUpload={handleOpenDocumentUpload}
+        handleOpenManageDocuments={handleOpenManageDocuments} // Pass down the new handler
         setIsAddLenderOpen={setIsAddLenderOpen}
         resetFilters={resetFilters}
         searchTerm={searchTerm}
@@ -120,10 +120,11 @@ const Lenders = () => {
         statusOptions={statusOptions}
       />
 
-      <DocumentUploadDialog
-        isOpen={isUploadDocumentOpen}
-        onClose={() => setIsUploadDocumentOpen(false)}
-        lender={activeDocumentLender}
+      {/* Render the new ManageDocumentsDialog */}
+      <ManageDocumentsDialog
+        isOpen={isManageDocsOpen}
+        onClose={() => setIsManageDocsOpen(false)}
+        lender={activeLenderForDocs}
       />
     </div>
   );

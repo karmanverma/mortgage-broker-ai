@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { LayoutList, Grid } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,7 +13,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Lender, useLenders } from "@/hooks/useLenders";
+import { Lender } from "@/hooks/useLenders"; 
 import { FileText } from "lucide-react";
 import { LenderTableRow } from "./LenderTableRow";
 import { LenderCard } from "./LenderCard";
@@ -27,7 +26,7 @@ interface LendersListProps {
   selectedLenders: string[];
   toggleLenderSelection: (id: string) => void;
   selectAll: () => void;
-  handleOpenDocumentUpload: (lender: Lender) => void;
+  handleOpenManageDocuments: (lender: Lender) => void; // <-- Updated prop name
   setIsAddLenderOpen: (isOpen: boolean) => void;
   resetFilters: () => void;
   searchTerm: string;
@@ -43,7 +42,7 @@ export const LendersList = ({
   selectedLenders,
   toggleLenderSelection,
   selectAll,
-  handleOpenDocumentUpload,
+  handleOpenManageDocuments, // <-- Updated prop name
   setIsAddLenderOpen,
   resetFilters,
   searchTerm,
@@ -62,7 +61,7 @@ export const LendersList = ({
 
   if (filteredLenders.length === 0) {
     return (
-      <NoLendersFound 
+      <NoLendersFound
         searchTerm={searchTerm}
         selectedType={selectedType}
         selectedStatus={selectedStatus}
@@ -90,7 +89,7 @@ export const LendersList = ({
             <TooltipContent>Table View</TooltipContent>
           </Tooltip>
         </TooltipProvider>
-        
+
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -125,8 +124,8 @@ export const LendersList = ({
                 <TableHead>Contact Person</TableHead>
                 <TableHead>Contact Info</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Documents</TableHead>
-                <TableHead></TableHead>
+                <TableHead>Documents</TableHead> 
+                <TableHead className="text-right">Actions</TableHead> 
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -136,7 +135,7 @@ export const LendersList = ({
                   lender={lender}
                   selectedLenders={selectedLenders}
                   toggleLenderSelection={toggleLenderSelection}
-                  handleOpenDocumentUpload={handleOpenDocumentUpload}
+                  handleOpenManageDocuments={handleOpenManageDocuments} // <-- Pass down updated prop
                 />
               ))}
             </TableBody>
@@ -150,7 +149,8 @@ export const LendersList = ({
             <LenderCard
               key={lender.id}
               lender={lender}
-              handleOpenDocumentUpload={handleOpenDocumentUpload}
+              // Assuming LenderCard will also need a way to open the dialog
+              handleOpenManageDocuments={handleOpenManageDocuments} // <-- Pass down updated prop
             />
           ))}
         </div>

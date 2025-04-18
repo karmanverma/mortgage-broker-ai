@@ -1,91 +1,161 @@
-import React from 'react';
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, X, MessageSquareText } from "lucide-react"; // Added icon
-import { ConversationInfo } from '@/hooks/useConversations';
-import { cn } from "@/lib/utils";
-import { Skeleton } from "@/components/ui/skeleton"; // Import Skeleton
+import React, { useState } from 'react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
+import { PlusCircle, MessageSquare, Trash2, AlertCircle } from 'lucide-react';
+import { Conversation } from '@/hooks/useConversations.types'; // Import Conversation type (now represents unique session)
+import { cn } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+// Removed useToast - errors/success handled by parent via hook
 
 interface ConversationSidebarProps {
-    conversationList: ConversationInfo[];
-    isLoadingList: boolean;
-    activeSessionId: string | null;
-    setActiveConversation: (sessionId: string) => void;
-    onNewConversation: () => void;
-    setConversationSidebarOpen: (isOpen: boolean) => void;
+  // Expect a list of unique conversations (e.g., based on session_id)
+  conversations: Conversation[]; // Should be the unique list from the hook
+  loading: boolean;
+  error: string | null;
+  onSelectConversation: (sessionId: string | null) => void; // Changed to sessionId
+  selectedConversationId: string | null; // Changed to selectedConversationSessionId?
+  onStartNewConversation: () => void; // Callback to trigger new conversation in parent
+  onDeleteConversation: (sessionId: string) => Promise<void>; // Adjusted to reflect async nature if needed, though hook handles it
+  className?: string;
 }
 
-// Use ConversationInfo which only contains session_id and last_message_at
-const ConversationItem: React.FC<{ convo: ConversationInfo, isActive: boolean, onClick: () => void }> = ({ convo, isActive, onClick }) => (
-    <button
-        key={convo.session_id} // Use session_id as key
-        onClick={onClick}
-        className={cn(
-            "flex items-center w-full text-left px-3 py-2.5 rounded-md hover:bg-gray-100 text-sm truncate",
-            isActive ? "bg-blue-50 text-blue-700 font-medium" : "text-gray-700"
-        )}
-        title={`Session started at ${new Date(convo.last_message_at).toLocaleString()}`}
-    >
-        <MessageSquareText className="h-4 w-4 mr-2.5 shrink-0" />
-        <span className="truncate flex-1">
-            Chat from {new Date(convo.last_message_at).toLocaleDateString()} {new Date(convo.last_message_at).toLocaleTimeString([], { hour: 'numeric', minute:'2-digit'})}
-        </span>
-        {/* Optionally add a visual indicator for the active chat */}
-    </button>
-);
+export function ConversationSidebar({
+  conversations,
+  loading,
+  error,
+  onSelectConversation,
+  selectedConversationId, // Should match the session_id being selected
+  onStartNewConversation,
+  onDeleteConversation,
+  className,
+}: ConversationSidebarProps) {
 
-const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
-    conversationList,
-    isLoadingList,
-    activeSessionId,
-    setActiveConversation,
-    onNewConversation,
-    setConversationSidebarOpen
-}) => {
-    return (
-        <div className="flex flex-col h-full bg-white">
-            {/* Header with New Chat Button */}
-            <div className="p-3 flex items-center justify-between shrink-0 border-b">
-                 <Button onClick={onNewConversation} className="w-full mr-2"><Plus className="h-4 w-4 mr-2" />New Chat</Button>
-                 <Button variant="ghost" size="icon" onClick={() => setConversationSidebarOpen(false)} className="md:hidden"><X className="h-5 w-5" /></Button>
-            </div>
+  // State for delete confirmation dialog is local to the sidebar
+  const [conversationToDelete, setConversationToDelete] = useState<Conversation | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false); // Still track local delete UI state
 
-            {/* Recent Conversations Section */}
-            <div className="px-3 pt-3 pb-1 shrink-0">
-                 <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Recent Chats</h2>
-            </div>
+  // Call the prop function passed from the parent
+  const handleStartNewConversation = () => {
+     console.log("Sidebar: Requesting new conversation...");
+     onStartNewConversation();
+  };
 
-            {/* Conversation List Area */}
-            <ScrollArea className="flex-1 px-2 pb-2">
-                {isLoadingList ? (
-                   // Show skeleton loaders while fetching the list
-                   <div className="space-y-2 p-1">
-                       <Skeleton className="h-9 w-full" />
-                       <Skeleton className="h-9 w-full" />
-                       <Skeleton className="h-9 w-full" />
-                   </div>
-                ) : conversationList && conversationList.length > 0 ? (
-                   // Render the list of conversations
-                   <div className="space-y-1">
-                       {conversationList.map((convo) => (
-                           <ConversationItem
-                               key={convo.session_id} // Use session_id
-                               convo={convo}
-                               isActive={convo.session_id === activeSessionId} // Check if it's the active one
-                               onClick={() => {
-                                   setActiveConversation(convo.session_id); // Call the function from the hook
-                                   setConversationSidebarOpen(false); // Close sidebar on mobile after selection
-                               }}
-                           />
-                       ))}
-                   </div>
-                ) : (
-                  // Show message if no conversations exist
-                  <div className="p-4 text-sm text-center text-gray-500">No recent conversations. Start a new chat!</div>
+  // Trigger delete confirmation dialog
+  const handleDeleteClick = (conversation: Conversation, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent selecting the conversation when clicking delete
+    setConversationToDelete(conversation);
+  };
+
+  // Confirm and call the prop function for deletion
+  const handleConfirmDelete = async () => {
+    if (!conversationToDelete || !conversationToDelete.session_id) return;
+
+    const sessionIdToDelete = conversationToDelete.session_id;
+    setIsDeleting(true);
+    try {
+      // Call the parent's delete function (provided via props)
+      await onDeleteConversation(sessionIdToDelete);
+      // The parent hook (useConversations) now handles all state updates
+      // and showing success/error toasts. No need for extra logic here.
+      console.log(`Sidebar: Delete requested for session ${sessionIdToDelete} processed.`);
+       // --- REMOVED the block that manually called onSelectConversation(null) ---
+    } catch (err) {
+      // Errors are handled and toasted by the useConversations hook.
+      // Log here just for debugging if needed.
+      console.error("Sidebar: Error during delete confirmation (should be handled by hook):", err);
+    } finally {
+      setIsDeleting(false);
+      setConversationToDelete(null); // Close the dialog
+    }
+  };
+
+
+  return (
+    <div className={cn("h-full flex flex-col border-r bg-gray-50 dark:bg-gray-900/50", className)}>
+      <div className="p-4 flex justify-between items-center border-b">
+        <h2 className="text-lg font-semibold">Conversations</h2>
+        <Button variant="ghost" size="icon" onClick={handleStartNewConversation} title="Start New Conversation">
+          <PlusCircle className="h-5 w-5" />
+        </Button>
+      </div>
+      <ScrollArea className="flex-1">
+        <div className="p-2 space-y-1">
+          {loading && <p className="p-2 text-sm text-gray-500">Loading...</p>}
+          {error && (
+             <div className="p-2 text-sm text-red-600 flex items-center gap-2">
+                <AlertCircle className="h-4 w-4" />
+                {/* Display the error passed from parent */}
+                <span>{error || "Error loading chats"}</span>
+             </div>
+           )}
+          {!loading && !error && conversations.map((conv) => {
+             // Use session_id as the key and for selection/identification
+             const convSessionId = conv.session_id;
+             // Generate a display title (e.g., from date)
+             const displayTitle = `Chat from ${new Date(conv.created_at).toLocaleDateString()}`;
+             return (
+              <div
+                key={convSessionId} // Use session_id for the key
+                onClick={() => onSelectConversation(convSessionId)} // Pass session_id
+                className={cn(
+                  "flex items-center justify-between p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer group",
+                  selectedConversationId === convSessionId ? "bg-gray-100 dark:bg-gray-800 font-medium" : ""
                 )}
-            </ScrollArea>
-        </div>
-   );
-};
+              >
+                <div className="flex items-center space-x-2 overflow-hidden">
+                    <MessageSquare className="h-4 w-4 flex-shrink-0" />
+                    {/* Display generated title or fallback */}
+                    <span className="text-sm truncate">{displayTitle || `Conversation ${convSessionId.substring(0, 6)}`}</span>
+                </div>
 
-export default ConversationSidebar;
+                {/* --- AlertDialog Trigger for Delete --- */}
+                {/* Use AlertDialog based on the state `conversationToDelete` */}
+                <AlertDialog open={conversationToDelete?.session_id === convSessionId} onOpenChange={(open) => !open && setConversationToDelete(null)}>
+                   <AlertDialogTrigger asChild>
+                       <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => handleDeleteClick(conv, e)}
+                          title="Delete Conversation"
+                       >
+                          <Trash2 className="h-4 w-4" />
+                       </Button>
+                   </AlertDialogTrigger>
+                   <AlertDialogContent>
+                     <AlertDialogHeader>
+                       <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                       <AlertDialogDescription>
+                         This action cannot be undone. This will permanently delete this conversation session.
+                       </AlertDialogDescription>
+                     </AlertDialogHeader>
+                     <AlertDialogFooter>
+                       <AlertDialogCancel onClick={() => setConversationToDelete(null)} disabled={isDeleting}>Cancel</AlertDialogCancel>
+                       <AlertDialogAction onClick={handleConfirmDelete} disabled={isDeleting}>
+                         {isDeleting ? "Deleting..." : "Delete"}
+                       </AlertDialogAction>
+                     </AlertDialogFooter>
+                   </AlertDialogContent>
+                 </AlertDialog>
+                {/* --- End AlertDialog --- */}
+              </div>
+             );
+          })}
+           {!loading && !error && conversations.length === 0 && (
+              <p className="p-2 text-sm text-gray-500 text-center">No conversations yet.</p>
+           )}
+        </div>
+      </ScrollArea>
+    </div>
+  );
+}

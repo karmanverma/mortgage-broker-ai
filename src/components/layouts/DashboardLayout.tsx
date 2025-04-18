@@ -52,8 +52,8 @@ const DashboardLayout = () => {
            sidebarOpen={sidebarOpen}
            toggleMobileMenu={toggleMobileMenu}
          />
-         {/* Content Area - Fill available height */}
-         <main className="flex-1 overflow-hidden bg-gray-50/95 backdrop-blur-sm">
+         {/* Content Area - Allow vertical scrolling */}
+         <main className="flex-1 overflow-y-auto bg-gray-50/95 backdrop-blur-sm">
            <Outlet />
          </main>
       </div>

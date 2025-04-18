@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'; // Import useCallback
+import { useState, useCallback } from 'react';
 import { supabase, getStoragePaths, uploadFile, getFileUrl, deleteFile } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/components/ui/use-toast';
@@ -6,8 +6,8 @@ import { Tables } from '@/integrations/supabase/types';
 
 export type Document = Tables<'documents'>;
 
-export type NewDocument = {
-  name: string;
+export type NewDocumentPayload = {
+  name: string; // Use the file name for the 'name' field
   description?: string;
   file: File;
   lenderId: string;
@@ -18,21 +18,22 @@ export function useLenderDocuments() {
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
 
-  // Memoize fetchDocuments
-  const fetchDocuments = useCallback(async (lenderId?: string) => {
+  const fetchDocuments = useCallback(async (lenderId?: string): Promise<Document[]> => {
     console.log(`fetchDocuments called for lenderId: ${lenderId}`);
     if (!user) {
-      console.log('fetchDocuments: No user found, returning.');
+      console.log('fetchDocuments: No user found, returning empty array.');
       setIsLoading(false);
-      setDocuments([]); // Clear documents if no user
-      return;
+      setDocuments([]);
+      return [];
     }
 
+    // Reset loading state correctly at the start
     setIsLoading(true);
+    let fetchedData: Document[] = [];
     try {
       console.log(`fetchDocuments: Fetching documents for user ${user.id} and lender ${lenderId}`);
       let query = supabase
-        .from('documents')
+        .from('documents') // Ensure this is your table name
         .select('*')
         .eq('user_id', user.id);
 
@@ -49,8 +50,13 @@ export function useLenderDocuments() {
         throw error;
       }
 
-      setDocuments(data || []);
-      console.log(`fetchDocuments: Successfully fetched ${data?.length || 0} documents.`);
+      fetchedData = data || [];
+      // If fetching for a specific lender, don't overwrite the potentially global `documents` state.
+      // If fetching globally (no lenderId), update the global state.
+      if (!lenderId) {
+         setDocuments(fetchedData);
+      }
+      console.log(`fetchDocuments: Successfully fetched ${fetchedData.length} documents.`);
 
     } catch (error: any) {
       console.error('Error fetching documents:', error);
@@ -59,102 +65,55 @@ export function useLenderDocuments() {
         title: "Failed to load documents",
         description: `Error: ${error.message || 'Unknown error'}`,
       });
+       // Reset global state on error regardless
       setDocuments([]);
+      fetchedData = [];
     } finally {
-      console.log('fetchDocuments: Setting isLoading to false.');
+      // Always set loading false at the end
       setIsLoading(false);
     }
-    // Dependencies for fetchDocuments: user (from useAuth), supabase (stable), toast (assume stable)
-    // State setters (setIsLoading, setDocuments) are stable.
-  }, [user, toast]); // supabase is stable, state setters are stable
+    return fetchedData;
+  }, [user, toast]);
 
-  // Memoize uploadDocument
-  const uploadDocument = useCallback(async (newDocument: NewDocument) => {
-    if (!user) return null;
-    console.log(`uploadDocument: Starting upload for ${newDocument.name}`);
-
-    try {
-      const paths = getStoragePaths(user.id);
-      const fileExt = newDocument.file.name.split('.').pop();
-      const timestamp = new Date().getTime();
-      const filePath = `${paths.lenderDocuments}/${newDocument.lenderId}/${timestamp}_${newDocument.name.replace(/\s+/g, '_')}.${fileExt}`;
-      console.log(`uploadDocument: Uploading to storage path: ${filePath}`);
-
-      await uploadFile('lender_documents', filePath, newDocument.file);
-      console.log(`uploadDocument: File uploaded to storage successfully.`);
-
-      console.log(`uploadDocument: Inserting record into 'documents' table.`);
-      const { data, error } = await supabase
-        .from('documents')
-        .insert({
-          name: newDocument.name,
-          description: newDocument.description || null,
-          file_path: filePath,
-          file_type: newDocument.file.type,
-          file_size: newDocument.file.size,
-          lender_id: newDocument.lenderId,
-          user_id: user.id
-        })
-        .select()
-        .single();
-
-      if (error) {
-         console.error('uploadDocument: Supabase insert error:', error);
-         throw error;
-      }
-      console.log('uploadDocument: Database record inserted:', data);
-
-      toast({
-        title: "Document Uploaded",
-        description: `${newDocument.name} has been uploaded successfully.`,
-      });
-
-      // Call the memoized fetchDocuments
-      await fetchDocuments(newDocument.lenderId);
-      return data;
-
-    } catch (error: any) {
-      console.error('Error uploading document:', error);
-      toast({
-        variant: "destructive",
-        title: "Failed to upload document",
-        description: `Error: ${error.message || 'Unknown error'}`,
-      });
-      return null;
+  // Delete function - accepts lenderId for potential refetch
+  const deleteDocument = useCallback(async (documentId: string, filePath: string, lenderId?: string): Promise<boolean> => {
+    if (!user || !documentId || !filePath) {
+        console.error('deleteDocument: Missing user, documentId, or filePath.');
+        return false;
     }
-    // Dependencies for uploadDocument: user, fetchDocuments (now stable), toast, supabase
-  }, [user, fetchDocuments, toast]); // supabase is stable
-
-  // Memoize deleteDocument
-  const deleteDocument = useCallback(async (document: Document) => {
-    if (!user) return false;
-    console.log(`deleteDocument: Starting delete for document ID ${document.id}, path: ${document.file_path}`);
+    console.log(`deleteDocument: Starting delete for document ID ${documentId}, path: ${filePath}`);
 
     try {
-      console.log(`deleteDocument: Deleting from storage bucket 'lender_documents'`);
-      await deleteFile('lender_documents', document.file_path);
+      console.log(`deleteDocument: Deleting from storage bucket 'lender_documents'...`);
+      await deleteFile('lender_documents', filePath); // Use the helper
       console.log(`deleteDocument: File deleted from storage successfully.`);
 
       console.log(`deleteDocument: Deleting record from 'documents' table.`);
       const { error } = await supabase
         .from('documents')
         .delete()
-        .eq('id', document.id)
+        .eq('id', documentId)
         .eq('user_id', user.id);
 
       if (error) {
+        // RLS might fail here if the policy isn't met
         console.error('deleteDocument: Supabase delete error:', error);
-        throw error;
+        toast({ title: "DB Delete Failed", description: error.message, variant: "destructive" });
+        // Decide if you want to re-upload the file or notify the user
+        return false; // Indicate failure
       }
       console.log(`deleteDocument: Database record deleted successfully.`);
 
-      toast({
-        title: "Document Deleted",
-        description: "The document has been deleted successfully.",
-      });
+      toast({ title: "Document Deleted", description: "Document removed successfully." });
 
-      // Call the memoized fetchDocuments
-      await fetchDocuments(document.lender_id);
+      // Refetch for the specific lender if ID provided, otherwise maybe global?
+      // Since the dialog manages its own list based on the fetch, this might not be strictly needed
+      // unless other parts of the app rely on the global `documents` state.
+      if(lenderId) {
+          await fetchDocuments(lenderId); // Re-fetch for the specific lender
+      } else {
+          await fetchDocuments(); // Re-fetch global list
+      }
       return true;
 
     } catch (error: any) {
@@ -166,15 +125,110 @@ export function useLenderDocuments() {
       });
       return false;
     }
-     // Dependencies for deleteDocument: user, fetchDocuments (now stable), toast, supabase
-  }, [user, fetchDocuments, toast]); // supabase is stable
+  }, [user, fetchDocuments, toast]);
 
-  // Return the memoized functions
+  // Upload function - includes webhook
+  const uploadDocument = useCallback(async (payload: NewDocumentPayload): Promise<Document | null> => {
+    if (!user) {
+        console.error("uploadDocument: No user found.");
+        return null;
+    }
+    console.log(`uploadDocument: Starting upload for file: ${payload.file.name}, lender: ${payload.lenderId}`);
+
+    // Use a consistent path structure (e.g., public/[lender_id]/[timestamp]_[filename])
+    // Ensure the bucket ('lender_documents') allows public access if needed for getFileUrl
+    const fileExt = payload.file.name.split('.').pop();
+    const timestamp = Date.now();
+    const safeFileName = payload.file.name.replace(/[^a-zA-Z0-9._-]/g, '_'); // Sanitize filename
+    const filePath = `public/${payload.lenderId}/${timestamp}_${safeFileName}`;
+    console.log(`uploadDocument: Generated storage path: ${filePath}`);
+
+    try {
+      // 1. Upload to Storage
+      console.log(`uploadDocument: Uploading to bucket 'lender_documents'...`);
+      await uploadFile('lender_documents', filePath, payload.file); // Use the helper
+      console.log(`uploadDocument: Storage upload successful.`);
+
+      // 2. Insert into Database (Ensure columns match your table schema)
+      console.log(`uploadDocument: Inserting record into 'documents' table.`);
+      const { data: newDbRecord, error: insertError } = await supabase
+        .from('documents')
+        .insert({
+          // Map payload fields to your actual DB column names
+          name: payload.name, // Use the provided name (usually file name)
+          file_path: filePath,
+          file_type: payload.file.type,
+          file_size: payload.file.size,
+          lender_id: payload.lenderId,
+          user_id: user.id, // *** CRITICAL FOR RLS ***
+          description: payload.description || null,
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        // *** THIS IS LIKELY THE RLS ERROR POINT ***
+        console.error('uploadDocument: Supabase insert error (check RLS policy!):', insertError);
+        // Attempt cleanup on DB insert failure
+        console.log('uploadDocument: DB insert failed, attempting storage cleanup...');
+        await deleteFile('lender_documents', filePath);
+        throw insertError; // Re-throw to be caught below
+      }
+      console.log('uploadDocument: Database record inserted:', newDbRecord);
+
+       // 3. Get Public URL (Best effort, after successful insert)
+       const documentUrl = getFileUrl('lender_documents', filePath);
+       console.log("uploadDocument: Public URL:", documentUrl || "Could not generate");
+
+      // 4. Send Webhook Notification (AFTER successful insert)
+      const webhookUrl = 'https://n8n.srv783065.hstgr.cloud/webhook/093605b7-2040-4ab6-b151-4af4ed970bc4';
+      const webhookPayload = {
+        document_id: newDbRecord.id,
+        document_file_path: filePath,
+        uploaded_document_url: documentUrl,
+        document_file_type: payload.file.type,
+      };
+      console.log("uploadDocument: Sending webhook notification:", webhookPayload);
+      try {
+          const response = await fetch(webhookUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(webhookPayload),
+          });
+          if (!response.ok) {
+              console.error('Webhook failed:', response.status, await response.text());
+              toast({ title: "Webhook Warning", description: `Could not notify system. Status: ${response.status}`, variant: "warning" });
+          } else {
+              console.log("Webhook sent successfully.");
+          }
+      } catch (webhookError) {
+          console.error("Error sending webhook:", webhookError);
+          toast({ title: "Webhook Error", description: "Failed to send notification.", variant: "warning" });
+      }
+
+      toast({ title: "Document Uploaded", description: `${payload.name} uploaded successfully.` });
+
+      // Refetch for the specific lender
+      await fetchDocuments(payload.lenderId);
+      return newDbRecord;
+
+    } catch (error: any) {
+      console.error('Error in uploadDocument process:', error);
+      toast({
+        variant: "destructive",
+        title: "Failed to upload document",
+        description: error.message || 'An unknown error occurred.',
+      });
+      return null;
+    }
+  }, [user, fetchDocuments, toast]);
+
+
   return {
-    documents,
+    documents, // The global list (might be stale if specific fetches happened)
     isLoading,
-    fetchDocuments,
-    uploadDocument,
-    deleteDocument
+    fetchDocuments, // Fetches specific or global, returns result
+    uploadDocument, // Handles upload, DB insert, webhook
+    deleteDocument, // Handles delete
   };
 }
