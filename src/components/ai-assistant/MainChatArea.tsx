@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -8,6 +7,7 @@ import { Send, Loader2, Menu } from "lucide-react";
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from "@/lib/utils";
+import ChatControls from "./ChatControls";
 
 interface Message {
     sender: 'user' | 'ai';
@@ -60,7 +60,7 @@ const MainChatArea: React.FC<MainChatAreaProps> = ({
     onSaveAsPdf,
     onCopyToClipboard,
     onPrint,
-    messageSuggestions = [], // Provide default empty array to prevent undefined errors
+    messageSuggestions = [],
 }) => {
     return (
         <div className="flex-1 flex flex-col overflow-hidden relative">
@@ -72,19 +72,13 @@ const MainChatArea: React.FC<MainChatAreaProps> = ({
                         </Button>
                         <h2 className="text-lg font-semibold">{currentSessionId ? `Chat Session: ${currentSessionId.substring(0, 8)}` : 'New Chat'}</h2>
                     </div>
-                    <div className="flex items-center space-x-2 overflow-x-auto">
-                        <Button variant="outline" size="sm" onClick={onDeleteConversation} className="whitespace-nowrap">Delete Chat</Button>
-                        <Button variant="outline" size="sm" onClick={onSaveAsPdf} className="whitespace-nowrap hidden sm:inline-flex">Save as PDF</Button>
-                        <Button variant="outline" size="sm" onClick={onCopyToClipboard} className="whitespace-nowrap hidden sm:inline-flex">Copy</Button>
-                        <Button variant="outline" size="sm" onClick={onPrint} className="whitespace-nowrap hidden sm:inline-flex">Print</Button>
-                        <Button variant="ghost" size="icon" onClick={() => setContextPanelOpen(!contextPanelOpen)} className="flex-shrink-0">
-                            {contextPanelOpen ? 
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M3 6a3 3 0 013-3h12a3 3 0 013 3v12a3 3 0 01-3 3H6a3 3 0 01-3-3V6zm12 1.5a.75.75 0 00-.75.75v3a.75.75 0 001.5 0v-3a.75.75 0 00-.75-.75zM8.25 7.5a.75.75 0 01.75-.75h.008a.75.75 0 01.75.75v8.25a.75.75 0 01-.75.75h-.008a.75.75 0 01-.75-.75V7.5zM6 12a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zm9 1.5a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0z" clipRule="evenodd" /></svg>
-                                : 
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M3 6a3 3 0 013-3h12a3 3 0 013 3v12a3 3 0 01-3 3H6a3 3 0 01-3-3V6zM6 4.5A1.5 1.5 0 004.5 6v12a1.5 1.5 0 001.5 1.5h12a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H6zm7.5 1.5a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75zM8.25 7.5a.75.75 0 00-.75.75v8.25a.75.75 0 001.5 0V8.25a.75.75 0 00-.75-.75zM6 12a1.5 1.5 0 103 0 1.5 1.5 0 00-3 0zm9 1.5a1.5 1.5 0 103 0 1.5 1.5 0 00-3 0z" /></svg>
-                            }
-                        </Button>
-                    </div>
+                    <ChatControls
+                        sessionId={currentSessionId}
+                        onDeleteConversation={onDeleteConversation}
+                        onSaveAsPdf={onSaveAsPdf}
+                        onCopyToClipboard={onCopyToClipboard}
+                        onPrint={onPrint}
+                    />
                 </div>
             </div>
             <ScrollArea className="flex-1 p-4">
@@ -124,10 +118,10 @@ const MainChatArea: React.FC<MainChatAreaProps> = ({
                 </div>
             )}
 
-            {/* Input area with fixed positioning */}
-            <div className="border-t bg-white p-4">
-                <form onSubmit={handleSendMessage} className="flex gap-2 items-end">
-                    <div className="flex-1">
+            {/* Input area with fixed positioning and proper spacing */}
+            <div className="border-t bg-white p-4 w-full">
+                <form onSubmit={handleSendMessage} className="flex gap-2 items-end max-w-full">
+                    <div className="flex-1 min-w-0">
                         <Textarea
                             ref={textareaRef}
                             value={newMessage}
@@ -141,7 +135,7 @@ const MainChatArea: React.FC<MainChatAreaProps> = ({
                     <Button 
                         type="submit" 
                         disabled={isWaitingForAI || !newMessage.trim()}
-                        className="h-[60px] px-6"
+                        className="h-[60px] px-6 shrink-0"
                     >
                         {isWaitingForAI ? (
                             <Loader2 className="h-4 w-4 animate-spin" />

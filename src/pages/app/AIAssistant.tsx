@@ -1,25 +1,11 @@
-
-import React, { useState, useEffect, useRef, useCallback } from 'react'; // Core React imports
-import { useConversations, Conversation, ConversationInfo } from '@/hooks/useConversations'; // Import new types
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useConversations } from '@/hooks/useConversations';
 import { useAuth } from '@/contexts/AuthContext';
-import { useIsMobile } from '@/hooks/use-mobile'; // Import useIsMobile
-import { cn } from "@/lib/utils";
+import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from "@/components/ui/use-toast";
-
-// Import extracted components
 import ConversationSidebar from '@/components/ai-assistant/ConversationSidebar';
 import MainChatArea from '@/components/ai-assistant/MainChatArea';
 import ContextPanel from '@/components/ai-assistant/ContextPanel';
-
-// Define the Message type for the MainChatArea component
-interface Message {
-  sender: 'user' | 'ai';
-  message: string;
-  created_at: string;
-  id?: number;
-  session_id?: string;
-  user_id?: string;
-}
 
 const AIAssistantPage: React.FC = () => {
   const { user } = useAuth();
@@ -38,9 +24,8 @@ const AIAssistantPage: React.FC = () => {
     deleteConversation,
   } = useConversations();
 
-  // Map API messages to the Message type used by MainChatArea
   const messages: Message[] = (apiMessages || []).map(msg => ({
-    sender: msg.sender as 'user' | 'ai', // Type assertion to ensure it matches the Message type
+    sender: msg.sender as 'user' | 'ai',
     message: msg.message,
     created_at: msg.created_at,
     id: msg.id,
@@ -201,25 +186,15 @@ ${msg.message}`;
   }, []);
 
   return (
-    <div className="h-full flex flex-col bg-white overflow-hidden">
-      <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar overlay for mobile */}
-        {conversationSidebarOpen && <div className="fixed inset-0 z-30 bg-black/50 md:hidden" onClick={() => setConversationSidebarOpen(false)} />}
+    <div className="flex-1 flex flex-col h-full bg-white overflow-hidden p-0">
+      <div className="flex-1 flex overflow-hidden relative">
+        {conversationSidebarOpen && (
+          <div className="fixed inset-0 bg-black/50 z-30 md:hidden" 
+               onClick={() => setConversationSidebarOpen(false)} />
+        )}
         
-        {/* Mobile sidebar - fixed positioning */}
-        <div className={cn(`fixed inset-y-0 left-0 z-40 w-72 border-r bg-white transform transition-transform duration-300 md:hidden`, conversationSidebarOpen ? "translate-x-0" : "-translate-x-full")}>
-           <ConversationSidebar
-              conversationList={conversationList}
-              isLoadingList={isLoadingList}
-              activeSessionId={currentSessionId}
-              setActiveConversation={setActiveConversation}
-              onNewConversation={handleNewConversationClick}
-              setConversationSidebarOpen={setConversationSidebarOpen}
-           />
-        </div>
-        
-        {/* Desktop sidebar - always visible */}
-        <div className="w-72 border-r border-gray-200 hidden md:flex flex-col flex-shrink-0">
+        <div className={`fixed md:relative inset-y-0 left-0 z-40 w-72 bg-white transform transition-transform duration-300 
+            ${conversationSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:border-r`}>
           <ConversationSidebar
               conversationList={conversationList}
               isLoadingList={isLoadingList}
@@ -227,11 +202,10 @@ ${msg.message}`;
               setActiveConversation={setActiveConversation}
               onNewConversation={handleNewConversationClick}
               setConversationSidebarOpen={setConversationSidebarOpen}
-           />
+          />
         </div>
 
-        {/* Main content area */}
-        <div className="flex-1 flex min-w-0 overflow-hidden">
+        <div className="flex-1 min-w-0 relative flex">
           <MainChatArea
             messages={messages}
             isLoadingHistory={isLoadingHistory}
@@ -255,8 +229,7 @@ ${msg.message}`;
             onPrint={handlePrint}
             messageSuggestions={messageSuggestions}
           />
-          
-          {/* Context panel on right side */}
+
           <ContextPanel
             contextPanelOpen={contextPanelOpen}
             setContextPanelOpen={setContextPanelOpen}

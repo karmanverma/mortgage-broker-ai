@@ -2,22 +2,18 @@ import { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLenders } from "@/hooks/useLenders";
-import { useLenderDocuments } from "@/hooks/useLenderDocuments"; // Make sure fetchDocuments is exported/used if needed here
+import { useLenderDocuments } from "@/hooks/useLenderDocuments";
 
-// Import refactored components
 import { LenderSearch } from "@/components/lenders/LenderSearch";
 import { LendersList } from "@/components/lenders/LendersList";
 import { AddLenderForm } from "@/components/lenders/AddLenderForm";
 import { DocumentUploadDialog } from "@/components/lenders/DocumentUploadDialog";
 import { Tables } from "@/integrations/supabase/types";
 
-// Define Lender type explicitly
 type Lender = Tables<'lenders'>;
 
-// Lender type options
 const lenderTypes = ["Bank", "Broker", "Direct Lender", "Credit Union", "Correspondent", "Wholesale"];
 
-// Status options
 const statusOptions = ["Active", "Inactive", "New", "On Hold"];
 
 const Lenders = () => {
@@ -28,24 +24,20 @@ const Lenders = () => {
   const [selectedLenders, setSelectedLenders] = useState<string[]>([]);
   const [isAddLenderOpen, setIsAddLenderOpen] = useState(false);
   const [isUploadDocumentOpen, setIsUploadDocumentOpen] = useState(false);
-  const [activeDocumentLender, setActiveDocumentLender] = useState<Lender | null>(null); // Use Lender type
+  const [activeDocumentLender, setActiveDocumentLender] = useState<Lender | null>(null);
 
   const { lenders, isLoading: lendersLoading, fetchLenders } = useLenders();
-  // Only need fetchDocuments from the hook for the upload dialog action
   const { fetchDocuments } = useLenderDocuments();
 
-  // Fetch lenders on mount
   useEffect(() => {
     console.log("Lenders.tsx: Fetching lenders...");
     fetchLenders();
-    // Do not fetch all documents here
-  }, [fetchLenders]); // Only fetchLenders dependency
+  }, [fetchLenders]);
 
-  // Filter lenders based on search and filters
   const filteredLenders = lenders.filter(lender => {
     const matchesSearch = searchTerm === "" ||
-      (lender.name && lender.name.toLowerCase().includes(searchTerm.toLowerCase())) || // Added null check
-      (lender.contact_name && lender.contact_name.toLowerCase().includes(searchTerm.toLowerCase())); // Added null check
+      (lender.name && lender.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (lender.contact_name && lender.contact_name.toLowerCase().includes(searchTerm.toLowerCase()));
 
     const matchesType = selectedType === "" || lender.type === selectedType;
     const matchesStatus = selectedStatus === "" || lender.status === selectedStatus;
@@ -53,7 +45,6 @@ const Lenders = () => {
     return matchesSearch && matchesType && matchesStatus;
   });
 
-  // Select all lenders
   const selectAll = () => {
     if (selectedLenders.length === filteredLenders.length) {
       setSelectedLenders([]);
@@ -62,7 +53,6 @@ const Lenders = () => {
     }
   };
 
-  // Toggle selection of a single lender
   const toggleLenderSelection = (id: string) => {
     if (selectedLenders.includes(id)) {
       setSelectedLenders(selectedLenders.filter(lenderId => lenderId !== id));
@@ -71,28 +61,22 @@ const Lenders = () => {
     }
   };
 
-  // Reset all filters
   const resetFilters = () => {
     setSearchTerm("");
     setSelectedType("");
     setSelectedStatus("");
   };
 
-  // Handle opening the document upload dialog
-  const handleOpenDocumentUpload = (lender: Lender) => { // Use Lender type
+  const handleOpenDocumentUpload = (lender: Lender) => {
     console.log(`Lenders.tsx: Opening document upload for lender ID: ${lender.id}`);
     setActiveDocumentLender(lender);
-    // Optionally fetch documents specifically for this lender when opening the dialog
-    // This depends on whether the dialog needs the documents immediately
-    // fetchDocuments(lender.id);
     setIsUploadDocumentOpen(true);
   };
 
-  // Determine loading state (only lenders now)
   const isLoading = lendersLoading;
 
   return (
-    <div className="space-y-6">
+    <div className="p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
         <h1 className="text-2xl font-bold tracking-tight">Lenders</h1>
         <Button onClick={() => setIsAddLenderOpen(true)}>
@@ -101,7 +85,6 @@ const Lenders = () => {
         </Button>
       </div>
 
-      {/* Search and filters */}
       <LenderSearch
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
@@ -114,10 +97,8 @@ const Lenders = () => {
         statusOptions={statusOptions}
       />
 
-      {/* Lenders list */}
       <LendersList
         filteredLenders={filteredLenders}
-        // Do not pass documents down
         view={view}
         setView={setView}
         selectedLenders={selectedLenders}
@@ -129,10 +110,9 @@ const Lenders = () => {
         searchTerm={searchTerm}
         selectedType={selectedType}
         selectedStatus={selectedStatus}
-        isLoading={isLoading} // Pass original loading state
+        isLoading={isLoading}
       />
 
-      {/* Dialogs */}
       <AddLenderForm
         isOpen={isAddLenderOpen}
         onClose={() => setIsAddLenderOpen(false)}
@@ -144,7 +124,6 @@ const Lenders = () => {
         isOpen={isUploadDocumentOpen}
         onClose={() => setIsUploadDocumentOpen(false)}
         lender={activeDocumentLender}
-        // DocumentUploadDialog likely uses the useLenderDocuments hook internally now
       />
     </div>
   );
