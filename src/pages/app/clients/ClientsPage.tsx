@@ -2,8 +2,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, X as ClearIcon, Loader2 } from 'lucide-react';
-// Remove useSupabaseClient import
-// import { useSupabaseClient } from '@supabase/auth-helpers-react'; 
 import { supabase } from '@/integrations/supabase/client'; // Import supabase client directly
 import { useAuth } from '@/contexts/AuthContext'; // Import auth context to get user
 
@@ -26,13 +24,12 @@ import {
 } from "@/components/ui/dialog";
 import ClientList from '@/components/clients/ClientList';
 import AddClientForm from '@/components/clients/AddClientForm';
-// Use the generated types
-import { Database, Tables, TablesInsert } from '@/integrations/supabase/types'; 
+// Use the generated types and our mapping functions
+import { Client, mapDbClientToClient, mapClientToDbClient } from '@/features/clients/types';
+import { Tables, TablesInsert } from '@/integrations/supabase/types'; 
 import { useToast } from '@/components/ui/use-toast';
 import { z } from 'zod';
 
-// Define Client type based on Supabase Tables Row
-type Client = Tables<"clients">;
 // Define Client form data based on Supabase Tables Insert (adjust as needed for form)
 type ClientFormData = Omit<TablesInsert<"clients">, 'id' | 'user_id' | 'created_at' | 'updated_at'>; 
 
@@ -41,8 +38,6 @@ const loanTypeOptions = ['Conventional', 'FHA', 'VA', 'USDA', 'Jumbo'];
 const applicationStatusOptions = ['New', 'In Review', 'Approved', 'Denied', 'Withdrawn'];
 
 const ClientsPage = () => {
-  // Remove hook initialization, use imported supabase client directly
-  // const supabase = useSupabaseClient<Database>(); 
   const { user } = useAuth(); // Get the current user
   const { toast } = useToast();
 
@@ -54,7 +49,7 @@ const ClientsPage = () => {
   const [selectedEmploymentStatus, setSelectedEmploymentStatus] = useState<string>('all');
   const [selectedState, setSelectedState] = useState<string>('all');
 
-  // Fetch clients on component mount (useEffect remains largely the same, just uses the imported supabase)
+  // Fetch clients on component mount
   useEffect(() => {
     const fetchClients = async () => {
       console.log('useEffect: Fetching clients triggered.'); 
@@ -105,7 +100,9 @@ const ClientsPage = () => {
           setClients([]);
         } else if (data) {
           console.log('useEffect: Setting clients data:', data); 
-          setClients(data);
+          // Map DB clients to our Client type
+          const mappedClients = data.map(dbClient => mapDbClientToClient(dbClient));
+          setClients(mappedClients);
         } else {
            console.log('useEffect: No error, but no data received.'); 
            setClients([]); 
@@ -125,7 +122,6 @@ const ClientsPage = () => {
     };
 
     fetchClients();
-    // Remove supabase from dependencies as it's now a stable import
   }, [user, toast]); 
 
   const handleAddClientSuccess = (newClientData: ClientFormData) => {
@@ -134,13 +130,8 @@ const ClientsPage = () => {
       return;
     }
     
-    const clientToInsert: TablesInsert<"clients"> = {
-        ...newClientData,
-        user_id: user.id,
-        email: newClientData.email || '', 
-        first_name: newClientData.first_name || '', 
-        last_name: newClientData.last_name || '', 
-    };
+    // Map client data to DB format before inserting
+    const clientToInsert = mapClientToDbClient(newClientData as any, user.id);
 
     supabase
       .from('clients')
@@ -161,7 +152,9 @@ const ClientsPage = () => {
             description: `${newClient.first_name} ${newClient.last_name} has been added.`,
           });
           
-          setClients(prevClients => [newClient, ...prevClients]);
+          // Map the new client to our format before adding to state
+          const mappedNewClient = mapDbClientToClient(newClient);
+          setClients(prevClients => [mappedNewClient, ...prevClients]);
           setIsAddClientDialogOpen(false);
         }
       });
@@ -172,21 +165,26 @@ const ClientsPage = () => {
     return clients.filter(client => {
       const matchesSearch =
         searchTerm === '' ||
-        `${client.first_name} ${client.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        `${client.firstName} ${client.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
         client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (client.phone && client.phone.includes(searchTerm));
 
       
-      const matchesEmployment = selectedEmploymentStatus === 'all' || (client.employment_status && client.employment_status === selectedEmploymentStatus);
-      const matchesState = selectedState === 'all' || (client.state && client.state === selectedState);
+      const matchesEmployment = selectedEmploymentStatus === 'all' || 
+                               (client.employmentStatus === selectedEmploymentStatus);
+      const matchesState = selectedState === 'all' || 
+                          (client.state === selectedState);
 
       return matchesSearch && matchesEmployment && matchesState;
     });
   }, [clients, searchTerm, selectedEmploymentStatus, selectedState]);
 
   
-  const uniqueEmploymentStatuses = useMemo(() => Array.from(new Set(clients.map(c => c.employment_status).filter((status): status is string => !!status))), [clients]);
-  const uniqueStates = useMemo(() => Array.from(new Set(clients.map(c => c.state).filter((state): state is string => !!state))), [clients]);
+  const uniqueEmploymentStatuses = useMemo(() => 
+    Array.from(new Set(clients.map(c => c.employmentStatus))), [clients]);
+  
+  const uniqueStates = useMemo(() => 
+    Array.from(new Set(clients.map(c => c.state).filter(Boolean))), [clients]);
 
   const clearFilters = () => {
      setSearchTerm('');

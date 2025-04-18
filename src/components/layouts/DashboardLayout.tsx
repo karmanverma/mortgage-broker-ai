@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "../dashboard/Sidebar";
@@ -45,16 +46,14 @@ const DashboardLayout = () => {
 
       {/* Main Content Area */} 
       <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${sidebarOpen ? 'lg:pl-64' : 'lg:pl-0'}`}>
-         {/* Header */} 
+         {/* Header - Remove className prop since it's not defined in HeaderProps */} 
          <Header
            toggleSidebar={toggleSidebar}
            sidebarOpen={sidebarOpen}
            toggleMobileMenu={toggleMobileMenu}
-           className="flex-shrink-0 sticky top-0 z-30 bg-gray-50/95 backdrop-blur-sm border-b border-gray-200" // Make header sticky with background
          />
          {/* Content Area - Should handle its own scrolling if needed */}
-         {/* Removed overflow-y-auto from main, pages should manage their own scroll with h-full or ScrollArea */}
-         <main className="flex-1 p-4 lg:p-6">
+         <main className="flex-1 p-4 lg:p-6 bg-gray-50/95 backdrop-blur-sm border-b border-gray-200">
            <Outlet />
          </main>
       </div>

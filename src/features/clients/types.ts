@@ -1,4 +1,6 @@
+
 import { z } from 'zod';
+import { Tables } from '@/integrations/supabase/types';
 
 // Options for Select components
 export const employmentStatusOptions = [
@@ -74,4 +76,45 @@ export type ClientFormData = z.infer<typeof clientFormSchema>;
 export type Client = ClientFormData & {
   id: string; 
   dateAdded: Date;
+};
+
+// Add a utility function to map between Supabase DB format and our frontend format
+export const mapDbClientToClient = (dbClient: Tables<"clients">): Client => {
+  return {
+    id: dbClient.id,
+    firstName: dbClient.first_name,
+    lastName: dbClient.last_name,
+    email: dbClient.email,
+    phone: dbClient.phone || '',
+    streetAddress: dbClient.address_line1 || '',
+    city: dbClient.city || '',
+    state: dbClient.state || '',
+    zipCode: dbClient.zip_code || '',
+    employmentStatus: (dbClient.employment_status as any) || 'Employed',
+    annualIncome: dbClient.annual_income || 0,
+    loanAmountSought: 0, // This needs to be added to the DB or retrieved from another source
+    loanType: 'Conventional' as const, // This needs to be added to the DB or retrieved from another source
+    creditScoreRange: '<600' as const, // This will need mapping from actual credit_score
+    applicationStatus: 'New' as const, // This needs to be added to the DB or retrieved from another source
+    notes: '',
+    dateAdded: new Date(dbClient.created_at)
+  };
+};
+
+// Add a utility function to map from our frontend format to Supabase DB format
+export const mapClientToDbClient = (client: ClientFormData, userId: string): Partial<Tables<"clients">> => {
+  return {
+    first_name: client.firstName,
+    last_name: client.lastName,
+    email: client.email,
+    phone: client.phone,
+    address_line1: client.streetAddress,
+    city: client.city,
+    state: client.state,
+    zip_code: client.zipCode,
+    employment_status: client.employmentStatus,
+    annual_income: client.annualIncome,
+    user_id: userId,
+    // Map other fields as needed
+  };
 };

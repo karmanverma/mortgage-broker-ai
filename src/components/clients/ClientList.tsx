@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react'; 
@@ -11,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Client } from '@/features/clients/types'; // Assuming this defines the Client type structure
+import { Client } from '@/features/clients/types'; // Importing Client type
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { ArrowUpDown, Eye } from 'lucide-react';
@@ -71,7 +72,7 @@ const ClientList: React.FC<ClientListProps> = ({ clients }) => {
             <TableRow>
               <TableHead 
                 className="cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => handleSort('last_name')} // Assuming key is last_name
+                onClick={() => handleSort('lastName')} // Updated to use camelCase
               >
                  <div className="flex items-center">
                    Name <ArrowUpDown className="ml-2 h-3 w-3" />
@@ -81,7 +82,7 @@ const ClientList: React.FC<ClientListProps> = ({ clients }) => {
               <TableHead>Phone</TableHead>
               <TableHead 
                  className="text-right cursor-pointer hover:bg-muted/50 transition-colors"
-                 onClick={() => handleSort('loan_amount_sought')} // Assuming key is loan_amount_sought
+                 onClick={() => handleSort('loanAmountSought')} // Updated to use camelCase
                >
                  <div className="flex items-center justify-end">
                     Amount Sought <ArrowUpDown className="ml-2 h-3 w-3" />
@@ -91,7 +92,7 @@ const ClientList: React.FC<ClientListProps> = ({ clients }) => {
               <TableHead>Status</TableHead>
               <TableHead 
                  className="cursor-pointer hover:bg-muted/50 transition-colors"
-                 onClick={() => handleSort('created_at')} // Assuming key is created_at
+                 onClick={() => handleSort('dateAdded')} // Updated to use dateAdded from our type
               >
                   <div className="flex items-center">
                     Date Added <ArrowUpDown className="ml-2 h-3 w-3" />
@@ -110,13 +111,13 @@ const ClientList: React.FC<ClientListProps> = ({ clients }) => {
                 return (
                   <TableRow key={client.id} data-state="false"> 
                     <TableCell className="font-medium">
-                      {/* Ensure first_name and last_name exist */}
-                      {client.first_name || ''} {client.last_name || ''}
+                      {/* Updated to use camelCase property names */}
+                      {client.firstName || ''} {client.lastName || ''}
                     </TableCell>
                     <TableCell className="text-muted-foreground">{client.email || '--'}</TableCell>
                     <TableCell className="text-muted-foreground">{client.phone || '--'}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(client.loan_amount_sought)}</TableCell>
-                    <TableCell className="text-muted-foreground">{client.loan_type || '--'}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(client.loanAmountSought)}</TableCell>
+                    <TableCell className="text-muted-foreground">{client.loanType || '--'}</TableCell>
                     <TableCell>
                       {/* Render badge only if variant is determined */}
                       {statusVariant && (
@@ -128,7 +129,7 @@ const ClientList: React.FC<ClientListProps> = ({ clients }) => {
                          <span className="text-muted-foreground text-sm">N/A</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{formatDate(client.created_at)}</TableCell>
+                    <TableCell className="text-muted-foreground">{formatDate(client.dateAdded)}</TableCell>
                     <TableCell className="text-center">
                       <Button variant="ghost" size="sm" asChild>
                         <Link to={`/app/clients/${client.id}`} title="View Details">

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
@@ -6,14 +7,14 @@ import {
   Building,
   Clock,
   FileText,
-  MessageSquare, // Keep for AI Assistant quick action
+  MessageSquare,
   MoreHorizontal,
   Plus,
   RefreshCw,
   Search,
   TrendingUp,
   UserPlus,
-  Users // Use this for the Clients card
+  Users
 } from "lucide-react";
 import {
   Card,
@@ -33,8 +34,6 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-// Progress might not be needed if we remove AI Queries card
-// import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
   DialogContent,
@@ -43,7 +42,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import AddLenderForm from "@/components/lenders/AddLenderForm";
+// Fix the import - AddLenderForm doesn't have a default export
+import { AddLenderForm } from "@/components/lenders/AddLenderForm";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/components/ui/use-toast";

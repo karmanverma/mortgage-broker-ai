@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -16,9 +17,7 @@ import {
   Loader2,
   AlertCircle
 } from 'lucide-react';
-// Remove useSupabaseClient import
-// import { useSupabaseClient } from '@supabase/auth-helpers-react';
-import { supabase } from '@/integrations/supabase/client'; // Import supabase client directly
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 
@@ -31,6 +30,7 @@ import { useToast } from '@/components/ui/use-toast';
 
 // Import generated types
 import { Database, Tables } from '@/integrations/supabase/types';
+import { mapDbClientToClient } from '@/features/clients/types';
 
 // Import Tab Components
 import PersonalInfoTab from '@/components/clients/tabs/PersonalInfoTab';
@@ -40,7 +40,7 @@ import NotesTab from '@/components/clients/tabs/NotesTab';
 import ActivityLogTab from '@/components/clients/tabs/ActivityLogTab';
 
 // Define type aliases from generated types
-type Client = Tables<"clients">;
+type DbClient = Tables<"clients">;
 type ClientNote = Tables<"client_notes">;
 type ClientDocument = Tables<"documents"> & { client_id: string }; // Assuming documents will be filtered by client_id
 type ClientActivity = Tables<"activities"> & { client_id: string }; // Assuming activities will be filtered by client_id
@@ -64,7 +64,7 @@ const formatDate = (date: string | Date | null | undefined, formatString = 'PPP'
   }
 };
 
-type BadgeVariant = "default" | "secondary" | "destructive" | "outline" | null | undefined;
+type BadgeVariant = "default" | "secondary" | "destructive" | "outline" | "success" | null | undefined;
 
 // Update to use employment_status or another relevant field if applicationStatus is removed
 const getStatusVariant = (status: string | null | undefined): BadgeVariant => {
@@ -90,13 +90,11 @@ const DetailItem = ({ icon: Icon, label, value }: { icon: React.ElementType, lab
 
 const ClientDetailPage = () => {
   const { clientId } = useParams<{ clientId: string }>();
-  // Remove hook initialization, use imported supabase client directly
-  // const supabase = useSupabaseClient<Database>();
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const [client, setClient] = useState<Client | null>(null);
+  const [dbClient, setDbClient] = useState<DbClient | null>(null);
   const [notes, setNotes] = useState<ClientNote[]>([]);
   const [documents, setDocuments] = useState<ClientDocument[]>([]);
   const [activities, setActivities] = useState<ClientActivity[]>([]);
@@ -116,7 +114,7 @@ const ClientDetailPage = () => {
 
       try {
         // Fetch Client Details
-        const { data: clientData, error: clientError } = await supabase // Use imported supabase
+        const { data: clientData, error: clientError } = await supabase
           .from('clients')
           .select('*')
           .eq('id', clientId)
@@ -125,23 +123,23 @@ const ClientDetailPage = () => {
 
         if (clientError) throw new Error(clientError.message || 'Failed to fetch client details');
         if (!clientData) throw new Error('Client not found or access denied.');
-        setClient(clientData);
+        setDbClient(clientData);
 
         // Fetch Related Data in parallel
         const [notesRes, docsRes, activitiesRes] = await Promise.all([
-          supabase // Use imported supabase
+          supabase
             .from('client_notes')
             .select('*')
             .eq('client_id', clientId)
             .eq('user_id', user.id) // Ensure note ownership matches user
             .order('created_at', { ascending: false }),
-          supabase // Use imported supabase
+          supabase
             .from('documents')
             .select('*')
             .eq('client_id', clientId) // Filter documents by client_id
             // RLS should handle user access check based on client ownership
             .order('created_at', { ascending: false }),
-          supabase // Use imported supabase
+          supabase
             .from('activities')
             .select('*')
             .eq('client_id', clientId) // Filter activities by client_id
@@ -169,7 +167,7 @@ const ClientDetailPage = () => {
           variant: 'destructive',
         });
         // Optionally navigate back if client data is essential and failed
-        if (!client) {
+        if (!dbClient) {
            // navigate('/app/clients');
         }
       } finally {
@@ -178,9 +176,10 @@ const ClientDetailPage = () => {
     };
 
     fetchData();
-  // Remove supabase from dependencies
   }, [clientId, user, toast, navigate]); 
 
+  // Map DB client to our frontend client format when needed
+  const client = dbClient ? mapDbClientToClient(dbClient) : null;
 
   if (loading) {
     return (
@@ -207,7 +206,7 @@ const ClientDetailPage = () => {
     );
   }
 
-  if (!client) {
+  if (!dbClient || !client) {
        // This state might be brief if error state is set correctly
        return (
         <div className="text-center py-10">
@@ -230,7 +229,7 @@ const ClientDetailPage = () => {
       component: PersonalInfoTab,
       title: "Personal Information",
       description: "View and manage personal details.",
-      data: client // Pass the main client object
+      data: dbClient // Pass the raw DB client data that the components expect
     },
     {
       id: 'financial',
@@ -239,7 +238,7 @@ const ClientDetailPage = () => {
       component: FinancialDetailsTab,
       title: "Financial Details",
       description: "View and manage financial information.",
-      data: client // Pass the main client object
+      data: dbClient // Pass the raw DB client data that the components expect
     },
     {
       id: 'documents',
@@ -257,7 +256,7 @@ const ClientDetailPage = () => {
       component: NotesTab,
       title: "Client Notes",
       description: "Add and review notes specific to this client.",
-      data: { notes: notes, clientId: client.id, userId: user?.id } // Pass notes array and IDs
+      data: { notes: notes, clientId: dbClient.id, userId: user?.id } // Pass notes array and IDs
     },
     {
       id: 'activity',
@@ -283,24 +282,24 @@ const ClientDetailPage = () => {
         <aside className="w-full lg:w-1/4 xl:w-1/5 space-y-4 flex-shrink-0">
            <Card>
             <CardHeader>
-              <CardTitle className="text-xl">{client.first_name} {client.last_name}</CardTitle>
+              <CardTitle className="text-xl">{dbClient.first_name} {dbClient.last_name}</CardTitle>
               <CardDescription>Client Overview</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-               <DetailItem icon={Mail} label="Email" value={client.email} />
-               <DetailItem icon={Phone} label="Phone" value={client.phone} />
+               <DetailItem icon={Mail} label="Email" value={dbClient.email} />
+               <DetailItem icon={Phone} label="Phone" value={dbClient.phone} />
                {/* Use employment_status or another field for the badge */}
                <div className="flex items-center space-x-3">
                    <BadgeCheck className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
                    <div className="flex-1">
                        <p className="text-sm text-muted-foreground">Status</p>
-                       <Badge variant={getStatusVariant(client.employment_status)} className="mt-1">
-                           {client.employment_status || 'N/A'}
+                       <Badge variant={getStatusVariant(dbClient.employment_status)} className="mt-1">
+                           {dbClient.employment_status || 'N/A'}
                        </Badge>
                    </div>
                </div>
-               <DetailItem icon={CalendarDays} label="Date Added" value={formatDate(client.created_at)} />
-               <DetailItem icon={CalendarDays} label="Last Updated" value={formatDate(client.updated_at)} />
+               <DetailItem icon={CalendarDays} label="Date Added" value={formatDate(dbClient.created_at)} />
+               <DetailItem icon={CalendarDays} label="Last Updated" value={formatDate(dbClient.updated_at)} />
             </CardContent>
           </Card>
         </aside>
