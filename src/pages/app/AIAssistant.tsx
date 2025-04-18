@@ -1,13 +1,16 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useConversations } from '@/hooks/useConversations';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from "@/components/ui/use-toast";
+import { ChevronRight } from 'lucide-react';
 import ConversationSidebar from '@/components/ai-assistant/ConversationSidebar';
 import MainChatArea from '@/components/ai-assistant/MainChatArea';
 import ContextPanel from '@/components/ai-assistant/ContextPanel';
+import { cn } from '@/lib/utils';
 
-// Define the Message interface
+// Define the Message interface for type safety
 interface Message {
   sender: 'user' | 'ai';
   message: string;
@@ -207,26 +210,31 @@ ${msg.message}`;
   }, []);
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-white overflow-hidden p-0">
+    <div className="flex-1 flex flex-col h-full bg-white overflow-hidden">
       <div className="flex-1 flex overflow-hidden relative">
         {conversationSidebarOpen && (
           <div className="fixed inset-0 bg-black/50 z-30 md:hidden" 
                onClick={() => setConversationSidebarOpen(false)} />
         )}
         
-        <div className={`fixed md:relative inset-y-0 left-0 z-40 w-72 bg-white transform transition-transform duration-300 
-            ${conversationSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:border-r`}>
+        <div 
+          className={cn(
+            "fixed md:relative inset-y-0 left-0 z-40 w-72 bg-white transform transition-transform duration-300",
+            conversationSidebarOpen ? "translate-x-0" : "-translate-x-full",
+            "md:translate-x-0 md:border-r"
+          )}
+        >
           <ConversationSidebar
-              conversationList={conversationList}
-              isLoadingList={isLoadingList}
-              activeSessionId={currentSessionId}
-              setActiveConversation={setActiveConversation}
-              onNewConversation={handleNewConversationClick}
-              setConversationSidebarOpen={setConversationSidebarOpen}
+            conversationList={conversationList}
+            isLoadingList={isLoadingList}
+            activeSessionId={currentSessionId}
+            setActiveConversation={setActiveConversation}
+            onNewConversation={handleNewConversationClick}
+            setConversationSidebarOpen={setConversationSidebarOpen}
           />
         </div>
 
-        <div className="flex-1 min-w-0 relative flex">
+        <div className="flex-1 min-w-0 relative flex overflow-hidden">
           <MainChatArea
             messages={messages}
             isLoadingHistory={isLoadingHistory}
@@ -251,11 +259,31 @@ ${msg.message}`;
             messageSuggestions={messageSuggestions}
           />
 
-          <ContextPanel
-            contextPanelOpen={contextPanelOpen}
-            setContextPanelOpen={setContextPanelOpen}
-            onContextChange={setMessageContext}
-          />
+          <div className="absolute right-0 top-1/2 transform -translate-y-1/2 z-20 lg:hidden">
+            <button
+              onClick={() => setContextPanelOpen(!contextPanelOpen)}
+              className={cn(
+                "bg-white border rounded-l-lg p-1.5 shadow-md transition-transform",
+                contextPanelOpen && "rotate-180"
+              )}
+            >
+              <ChevronRight className="h-4 w-4 text-gray-500" />
+            </button>
+          </div>
+
+          <div 
+            className={cn(
+              "w-80 border-l bg-white flex-shrink-0 transition-all duration-300 transform",
+              contextPanelOpen ? "translate-x-0" : "translate-x-full",
+              "fixed inset-y-0 right-0 z-10 lg:relative"
+            )}
+          >
+            <ContextPanel
+              contextPanelOpen={contextPanelOpen}
+              setContextPanelOpen={setContextPanelOpen}
+              onContextChange={setMessageContext}
+            />
+          </div>
         </div>
       </div>
     </div>

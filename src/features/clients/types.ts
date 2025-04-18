@@ -1,4 +1,3 @@
-
 import { z } from 'zod';
 import { Tables, TablesInsert } from '@/integrations/supabase/types';
 
@@ -72,39 +71,36 @@ export const clientFormSchema = z.object({
 // TypeScript type derived from the schema
 export type ClientFormData = z.infer<typeof clientFormSchema>;
 
-// Client type including generated fields and additional properties used in ClientsPage
+// Add status to Tables type definition to match database
 export type Client = ClientFormData & {
   id: string; 
   dateAdded: Date;
-  // Add missing properties used in ClientsPage
   status?: string;
   avatarUrl?: string;
 };
 
-// Add a utility function to map between Supabase DB format and our frontend format
-export const mapDbClientToClient = (dbClient: Tables<"clients">): Client => {
-  return {
-    id: dbClient.id,
-    firstName: dbClient.first_name,
-    lastName: dbClient.last_name,
-    email: dbClient.email,
-    phone: dbClient.phone || '',
-    streetAddress: dbClient.address_line1 || '',
-    city: dbClient.city || '',
-    state: dbClient.state || '',
-    zipCode: dbClient.zip_code || '',
-    employmentStatus: (dbClient.employment_status as any) || 'Employed',
-    annualIncome: dbClient.annual_income || 0,
-    loanAmountSought: 0, // This needs to be added to the DB or retrieved from another source
-    loanType: 'Conventional' as const, // This needs to be added to the DB or retrieved from another source
-    creditScoreRange: '<600' as const, // This will need mapping from actual credit_score
-    applicationStatus: 'New' as const, // This needs to be added to the DB or retrieved from another source
-    notes: '',
-    dateAdded: new Date(dbClient.created_at),
-    // Map additional properties
-    status: dbClient.status || 'active'
-  };
-};
+// Update the mapping function to handle status
+export const mapDbClientToClient = (dbClient: Tables<"clients">): Client => ({
+  id: dbClient.id,
+  firstName: dbClient.first_name,
+  lastName: dbClient.last_name,
+  email: dbClient.email,
+  phone: dbClient.phone || '',
+  streetAddress: dbClient.address_line1 || '',
+  city: dbClient.city || '',
+  state: dbClient.state || '',
+  zipCode: dbClient.zip_code || '',
+  employmentStatus: (dbClient.employment_status as any) || 'Employed',
+  annualIncome: dbClient.annual_income || 0,
+  loanAmountSought: 0,
+  loanType: 'Conventional' as const,
+  creditScoreRange: '<600' as const,
+  applicationStatus: 'New' as const,
+  notes: '',
+  dateAdded: new Date(dbClient.created_at),
+  status: 'active', // Default status
+  avatarUrl: undefined // Optional avatar URL
+});
 
 // Add a utility function to map from our frontend format to Supabase DB format
 export const mapClientToDbClient = (client: ClientFormData, userId: string): TablesInsert<"clients"> => {
