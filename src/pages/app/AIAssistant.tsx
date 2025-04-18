@@ -1,11 +1,22 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useConversations } from '@/hooks/useConversations';
+import { useConversations, Conversation } from '@/hooks/useConversations';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from "@/components/ui/use-toast";
 import ConversationSidebar from '@/components/ai-assistant/ConversationSidebar';
 import MainChatArea from '@/components/ai-assistant/MainChatArea';
 import ContextPanel from '@/components/ai-assistant/ContextPanel';
+
+// Define the Message interface
+interface Message {
+  sender: 'user' | 'ai';
+  message: string;
+  created_at: string;
+  id: string;
+  session_id: string;
+  user_id: string;
+}
 
 const AIAssistantPage: React.FC = () => {
   const { user } = useAuth();

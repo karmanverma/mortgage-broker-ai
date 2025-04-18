@@ -1,18 +1,19 @@
+
 import React from 'react';
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, Loader2, Menu } from "lucide-react";
-import { useAuth } from '@/contexts/AuthContext';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { cn } from "@/lib/utils";
+import { Menu } from "lucide-react";
 import ChatControls from "./ChatControls";
+import ChatMessages from './ChatMessages';
+import MessageSuggestions from './MessageSuggestions';
+import ChatInput from './ChatInput';
 
 interface Message {
     sender: 'user' | 'ai';
     message: string;
     created_at: string;
+    id: string;
+    session_id: string;
+    user_id: string;
 }
 
 interface MainChatAreaProps {
@@ -81,70 +82,27 @@ const MainChatArea: React.FC<MainChatAreaProps> = ({
                     />
                 </div>
             </div>
-            <ScrollArea className="flex-1 p-4">
-                {isLoadingHistory ? (
-                    <div className="text-center text-gray-500">Loading messages...</div>
-                ) : conversationError ? (
-                    <div className="text-center text-red-500">Error: {conversationError.message}</div>
-                ) : (
-                    messages.map((msg, index) => (
-                        <div key={index} className={`mb-4 flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
-                            <div className={`max-w-[75%] rounded-xl px-4 py-2 ${msg.sender === 'user' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
-                                {msg.message}
-                                <div className="text-xs text-gray-500 mt-1">{new Date(msg.created_at).toLocaleTimeString()}</div>
-                            </div>
-                        </div>
-                    ))
-                )}
-                <div ref={messagesEndRef} />
-            </ScrollArea>
             
-            {/* Message suggestions */}
-            {messageSuggestions && messageSuggestions.length > 0 && (
-                <div className="px-4 py-2 border-t bg-gray-50">
-                    <div className="flex gap-2 overflow-x-auto pb-2">
-                        {messageSuggestions.map((suggestion, index) => (
-                            <Button
-                                key={index}
-                                variant="outline"
-                                size="sm"
-                                className="whitespace-nowrap"
-                                onClick={() => setNewMessage(suggestion)}
-                            >
-                                {suggestion}
-                            </Button>
-                        ))}
-                    </div>
-                </div>
-            )}
+            <ChatMessages 
+                messages={messages}
+                isLoadingHistory={isLoadingHistory}
+                conversationError={conversationError}
+                messagesEndRef={messagesEndRef}
+            />
+            
+            <MessageSuggestions 
+                suggestions={messageSuggestions}
+                onSelectSuggestion={setNewMessage}
+            />
 
-            {/* Input area with fixed positioning and proper spacing */}
-            <div className="border-t bg-white p-4 w-full">
-                <form onSubmit={handleSendMessage} className="flex gap-2 items-end max-w-full">
-                    <div className="flex-1 min-w-0">
-                        <Textarea
-                            ref={textareaRef}
-                            value={newMessage}
-                            onChange={(e) => setNewMessage(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            placeholder="Type your message..."
-                            className="min-h-[60px] resize-none"
-                            disabled={isWaitingForAI}
-                        />
-                    </div>
-                    <Button 
-                        type="submit" 
-                        disabled={isWaitingForAI || !newMessage.trim()}
-                        className="h-[60px] px-6 shrink-0"
-                    >
-                        {isWaitingForAI ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                            <Send className="h-4 w-4" />
-                        )}
-                    </Button>
-                </form>
-            </div>
+            <ChatInput
+                newMessage={newMessage}
+                setNewMessage={setNewMessage}
+                handleSendMessage={handleSendMessage}
+                handleKeyDown={handleKeyDown}
+                textareaRef={textareaRef}
+                isWaitingForAI={isWaitingForAI}
+            />
         </div>
     );
 };
