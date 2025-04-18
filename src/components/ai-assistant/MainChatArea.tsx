@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -60,7 +61,7 @@ const MainChatArea: React.FC<MainChatAreaProps> = ({
     onSaveAsPdf,
     onCopyToClipboard,
     onPrint,
-    messageSuggestions,
+    messageSuggestions = [], // Provide default empty array to prevent undefined errors
 }) => {
     return (
         <div className="flex-1 flex flex-col overflow-hidden relative">
@@ -104,7 +105,7 @@ const MainChatArea: React.FC<MainChatAreaProps> = ({
             {/* Message suggestions */}
             <div className="px-4 py-2 border-t bg-gray-50">
                 <div className="flex gap-2 overflow-x-auto pb-2">
-                    {messageSuggestions.map((suggestion, index) => (
+                    {messageSuggestions && messageSuggestions.map((suggestion, index) => (
                         <Button
                             key={index}
                             variant="outline"

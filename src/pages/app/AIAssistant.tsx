@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react'; // Core React imports
 import { useConversations, Conversation, ConversationInfo } from '@/hooks/useConversations'; // Import new types
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,11 +11,18 @@ import ConversationSidebar from '@/components/ai-assistant/ConversationSidebar';
 import MainChatArea from '@/components/ai-assistant/MainChatArea';
 import ContextPanel from '@/components/ai-assistant/ContextPanel';
 
+// Define the Message type for the MainChatArea component
+interface Message {
+  sender: 'user' | 'ai';
+  message: string;
+  created_at: string;
+}
+
 const AIAssistantPage: React.FC = () => {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const {
-    messages,
+    messages: apiMessages,
     conversationList,
     setActiveConversation,
     currentSessionId,
@@ -26,6 +34,13 @@ const AIAssistantPage: React.FC = () => {
     fetchMessages,
     deleteConversation,
   } = useConversations();
+
+  // Map API messages to the Message type used by MainChatArea
+  const messages: Message[] = (apiMessages || []).map(msg => ({
+    sender: msg.sender as 'user' | 'ai', // Type assertion to ensure it matches the Message type
+    message: msg.message,
+    created_at: msg.created_at
+  }));
 
   const [newMessage, setNewMessage] = useState("");
   const [isWaitingForAI, setIsWaitingForAI] = useState(false);
@@ -238,3 +253,4 @@ ${msg.message}`;
 };
 
 export default AIAssistantPage;
+

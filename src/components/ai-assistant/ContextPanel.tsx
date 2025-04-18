@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -15,7 +16,7 @@ import { useLenders } from '@/hooks/useLenders';
 import { useLenderDocuments } from '@/hooks/useLenderDocuments';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
-import { Client } from '@/features/clients/types';
+import { Client, mapDbClientToClient } from '@/features/clients/types';
 
 interface ContextPanelProps {
     contextPanelOpen: boolean;
@@ -46,6 +47,13 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
     const [selectedLenderIds, setSelectedLenderIds] = useState<string[]>([]);
     const [lenderTypeFilter, setLenderTypeFilter] = useState<string>('All');
     
+    // Define the uniqueLenderTypes array from the lenders data
+    const uniqueLenderTypes = useMemo(() => {
+        if (!allUserLenders || allUserLenders.length === 0) return [];
+        const types = new Set(allUserLenders.map(lender => lender.type));
+        return Array.from(types);
+    }, [allUserLenders]);
+    
     // Fetch clients
     useEffect(() => {
         const fetchClients = async () => {
@@ -59,7 +67,10 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
                     .eq('user_id', user.id);
 
                 if (error) throw error;
-                setClients(clientsData || []);
+                
+                // Map DB clients to Client type
+                const mappedClients = (clientsData || []).map(client => mapDbClientToClient(client));
+                setClients(mappedClients);
             } catch (error) {
                 console.error('Error fetching clients:', error);
             } finally {
@@ -73,12 +84,12 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
     // Filter clients based on search term
     const filteredClients = useMemo(() => {
         return clients.filter(client => {
-            const searchString = `${client.first_name} ${client.last_name} ${client.email}`.toLowerCase();
+            const searchString = `${client.firstName} ${client.lastName} ${client.email}`.toLowerCase();
             return searchString.includes(clientSearchTerm.toLowerCase());
         });
     }, [clients, clientSearchTerm]);
 
-    const lendersWithDocuments = useMemo((): Lender[] => {
+    const lendersWithDocuments = useMemo(() => {
         if (isLoadingLenders || isLoadingDocuments || !allUserLenders || !allUserDocuments) {
             return [];
         }
@@ -87,7 +98,7 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
     }, [allUserLenders, allUserDocuments, isLoadingLenders, isLoadingDocuments]);
 
     // Memoize a map of lender IDs to their document IDs for quick lookup
-    const documentIdsByLender = useMemo((): Record<string, string[]> => {
+    const documentIdsByLender = useMemo(() => {
         if (isLoadingDocuments || !allUserDocuments) {
             return {};
         }
@@ -211,7 +222,7 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
                                                         htmlFor={`client-${client.id}`}
                                                         className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                                                     >
-                                                        {client.first_name} {client.last_name}
+                                                        {client.firstName} {client.lastName}
                                                     </Label>
                                                 </div>
                                             ))
