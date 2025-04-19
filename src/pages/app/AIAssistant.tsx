@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useConversations } from '@/hooks/useConversations';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,13 +11,18 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
+  DialogHeader, // Import DialogHeader
+  DialogTitle,  // Import DialogTitle
+  DialogDescription, // Import DialogDescription
   DialogTrigger,
   DialogClose,
   DialogFooter
 } from "@/components/ui/dialog";
 import { MessageSquareText, Settings2 } from 'lucide-react'; // Icons for buttons
+// Added hook to get documents for context reconstruction
+import { useLenderDocuments } from '@/hooks/useLenderDocuments';
+// Import hook to fetch clients for tooltip
+import { useClients } from '@/hooks/useClients';
 
 // Interface for individual messages remains the same
 interface Message {
@@ -32,8 +36,8 @@ interface Message {
 
 const AIAssistantPage: React.FC = () => {
   const { user } = useAuth();
-  // isMobile hook is no longer needed for layout decisions here
-  // const isMobile = useIsMobile(); 
+  const { documents: allUserDocuments } = useLenderDocuments(); // Get documents for context
+  const { clients: allUserClients } = useClients(); // Get clients for tooltip
 
   const {
     conversations: conversationList,
@@ -65,14 +69,16 @@ const AIAssistantPage: React.FC = () => {
   const [isConversationDialogOpen, setIsConversationDialogOpen] = useState(false);
   const [isContextDialogOpen, setIsContextDialogOpen] = useState(false);
 
-  const [messageContext, setMessageContext] = useState<{
-    selectedClientId?: string;
-    selectedLenderIds: string[];
-    selectedDocumentIds: string[];
-  }>({
-    selectedLenderIds: [],
-    selectedDocumentIds: [],
-  });
+  // --- State for Context Panel Selections ---
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null); // Start empty
+  const [selectedLenderIds, setSelectedLenderIds] = useState<string[]>([]); // Start empty
+  // --- End Context Panel State ---
+
+  // --- Add Logging ---
+  useEffect(() => {
+    console.log("AIAssistantPage: allUserClients updated: ", allUserClients);
+  }, [allUserClients]);
+  // --- End Logging ---
 
   const [messageSuggestions] = useState([
     "Show me this client's loan application status",
@@ -84,20 +90,31 @@ const AIAssistantPage: React.FC = () => {
   // Fetch messages when the active conversation changes
   useEffect(() => {
     if (currentSessionId) {
-      console.log(`AIAssistantPage: Active session changed to ${currentSessionId}, fetching messages...`);
+      // console.log(`AIAssistantPage: Active session changed to ${currentSessionId}, fetching messages...`);
       fetchMessages(currentSessionId);
     } else {
-      console.log("AIAssistantPage: No active session selected. Ready for new input.");
+      // console.log("AIAssistantPage: No active session selected. Ready for new input.");
     }
   }, [currentSessionId, fetchMessages]);
-
-  // Sidebar state based on mobile is removed
-  // useEffect(() => { ... }, [isMobile]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const n8nWebhookUrl = "https://n8n.srv783065.hstgr.cloud/webhook/0d7564b0-45e8-499f-b3b9-b136386319e5/chat";
+
+  // Helper to derive document IDs from selected lenders
+  const getSelectedDocumentIds = useCallback(() => {
+    if (!allUserDocuments || selectedLenderIds.length === 0) return [];
+    const documentIdsByLender = allUserDocuments.reduce((acc, doc) => {
+        if (!acc[doc.lender_id]) {
+            acc[doc.lender_id] = [];
+        }
+        acc[doc.lender_id].push(doc.id);
+        return acc;
+    }, {} as Record<string, string[]>);
+    return selectedLenderIds.flatMap(lenderId => documentIdsByLender[lenderId] || []);
+  }, [allUserDocuments, selectedLenderIds]);
+
 
   const getAIResponse = useCallback(async (userMessage: string, history: ConversationMessage[], sessionId: string): Promise<string | null> => {
     if (!user) {
@@ -106,6 +123,14 @@ const AIAssistantPage: React.FC = () => {
     }
     const safeHistory = Array.isArray(history) ? history : [];
     const historyForWebhook = safeHistory.slice(-10).map(msg => ({ sender: msg.sender, message: msg.message }));
+
+    // --- Derive context object directly from state ---
+    const currentContext = {
+        selectedClientId: selectedClientId || undefined, // Use state
+        selectedLenderIds: selectedLenderIds,          // Use state
+        selectedDocumentIds: getSelectedDocumentIds() // Use derived state
+    };
+    // --- End context derivation ---
 
     try {
       const response = await fetch(n8nWebhookUrl, {
@@ -117,7 +142,7 @@ const AIAssistantPage: React.FC = () => {
           sessionId: sessionId,
           message: userMessage,
           history: historyForWebhook,
-          context: messageContext
+          context: currentContext // Pass derived context
         }),
       });
       if (!response.ok) {
@@ -136,7 +161,8 @@ const AIAssistantPage: React.FC = () => {
       toast({ variant: "destructive", title: "AI Communication Error", description: error instanceof Error ? error.message : "Could not reach AI assistant." });
       return null;
     }
-  }, [user, n8nWebhookUrl, messageContext, toast]);
+    // Update dependencies to include new state variables
+  }, [user, n8nWebhookUrl, selectedClientId, selectedLenderIds, getSelectedDocumentIds, toast]);
 
   const handleSendMessage = useCallback(async (e?: React.FormEvent | React.KeyboardEvent) => {
     if (e && 'preventDefault' in e) e.preventDefault();
@@ -152,7 +178,7 @@ const AIAssistantPage: React.FC = () => {
         targetSessionId = newConv.session_id;
         setActiveConversation(targetSessionId);
         isNewSession = true;
-        console.log(`Started new conversation: ${targetSessionId}`);
+        // console.log(`Started new conversation: ${targetSessionId}`);
       } else {
         toast({ variant: "destructive", title: "Error", description: "Could not start a new conversation." });
         setIsWaitingForAI(false);
@@ -188,7 +214,7 @@ const AIAssistantPage: React.FC = () => {
     if (aiResponseContent) {
       await addMessage(aiResponseContent, 'ai', targetSessionId);
     } else {
-      toast({ variant: "default", title: "AI Response Pending", description: "Could not get AI response, but your message was saved." });
+      // toast({ variant: "default", title: "AI Response Pending", description: "Could not get AI response, but your message was saved." });
     }
 
     setIsWaitingForAI(false);
@@ -234,7 +260,7 @@ const AIAssistantPage: React.FC = () => {
   // Delete conversation (closes dialog if current deleted)
   const handleDeleteConversation = useCallback(async (sessionIdToDelete: string) => {
     if (!deleteConversation || !sessionIdToDelete) return;
-    console.log(`AIAssistantPage: Deleting conversation session ${sessionIdToDelete}`);
+    // console.log(`AIAssistantPage: Deleting conversation session ${sessionIdToDelete}`);
     const { success } = await deleteConversation(sessionIdToDelete);
     if (success) {
         toast({ title: "Conversation Deleted", description: `Session ${sessionIdToDelete.substring(0,8)}... removed.` });
@@ -242,7 +268,7 @@ const AIAssistantPage: React.FC = () => {
             setActiveConversation(null);
             setNewMessage('');
             // Close the dialog if the active conversation was deleted
-            setIsConversationDialogOpen(false); 
+            setIsConversationDialogOpen(false);
         }
         // Potentially refetch or update list if needed, assuming hook handles it
     } else {
@@ -283,7 +309,6 @@ ${msg.message}`;
   }, [toast]);
 
   return (
-    // Main container: centers the chat area
     <div className="flex flex-col h-full items-center bg-white overflow-hidden relative p-4">
 
       {/* Floating Conversation Button & Dialog */}
@@ -292,14 +317,13 @@ ${msg.message}`;
           <Button
             variant="outline"
             size="icon"
-            // Position fixed on the left, vertically centered
-            className="fixed left-4 top-1/2 -translate-y-1/2 z-10 rounded-full shadow-lg h-12 w-12" 
+            className="fixed left-4 top-1/2 -translate-y-1/2 z-10 rounded-full shadow-lg h-12 w-12"
             aria-label="Conversations"
           >
             <MessageSquareText className="h-6 w-6" />
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-[425px]"> 
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Conversations</DialogTitle>
           </DialogHeader>
@@ -310,11 +334,11 @@ ${msg.message}`;
             selectedConversationId={currentSessionId}
             onSelectConversation={(id) => {
                 setActiveConversation(id);
-                setIsConversationDialogOpen(false); // Close dialog on selection
+                setIsConversationDialogOpen(false);
             }}
-            onStartNewConversation={handleStartNewConversation} // Already closes dialog
-            onDeleteConversation={handleDeleteConversation} // Handles closing if needed
-            className="h-auto max-h-[70vh] overflow-y-auto" 
+            onStartNewConversation={handleStartNewConversation}
+            onDeleteConversation={handleDeleteConversation}
+            className="h-auto max-h-[70vh] overflow-y-auto"
           />
            <DialogFooter>
               <DialogClose asChild>
@@ -326,7 +350,7 @@ ${msg.message}`;
         </DialogContent>
       </Dialog>
 
-      {/* Main Chat Area Container: Centered with max-width */} 
+      {/* Main Chat Area Container */}
       <div className="flex-1 flex flex-col w-full max-w-3xl overflow-hidden h-full">
         <MainChatArea
           messages={messages}
@@ -341,42 +365,44 @@ ${msg.message}`;
           setNewMessage={setNewMessage}
           handleSendMessage={handleSendMessage}
           handleKeyDown={handleKeyDown}
-          // Remove props related to static sidebars
-          // Pass handler to open context dialog
           onOpenContextDialog={() => setIsContextDialogOpen(true)}
-          // Identify this page variant to MainChatArea (using isAssistPage convention)
-          isAssistPage={true} 
-          showChatSessionInfo={!!currentSessionId} // Show info box when session ID exists
-          // Pass conversation management functions directly
+          isAssistPage={true}
+          showChatSessionInfo={!!currentSessionId}
           onDeleteConversation={() => currentSessionId && handleDeleteConversation(currentSessionId)}
           onSaveAsPdf={handleSaveAsPdf}
           onCopyToClipboard={handleCopyToClipboard}
           onPrint={handlePrint}
           messageSuggestions={messageSuggestions}
-          // onStartNewConversation={handleStartNewConversation} // Not needed in MainChatArea for this layout
+          // --- Pass selection state for tooltip ---
+          selectedClientId={selectedClientId}
+          selectedLenderIds={selectedLenderIds}
+          clients={allUserClients} // Pass the fetched clients list
+          // --- End Pass selection state ---
         />
       </div>
 
       {/* Context Panel Dialog */}
       <Dialog open={isContextDialogOpen} onOpenChange={setIsContextDialogOpen}>
-        {/* Trigger is now inside MainChatArea's input section */}
-        <DialogContent className="sm:max-w-md"> 
-           <DialogHeader>
+        <DialogContent 
+          className="sm:max-w-md p-0" 
+          aria-describedby="context-dialog-description" // Link description
+        >
+           <DialogHeader className="p-4 pb-2 border-b"> 
              <DialogTitle>Context</DialogTitle>
+             {/* Visually hidden description for screen readers */}
+             <DialogDescription id="context-dialog-description" className="sr-only">
+               Select a client and lenders to provide context for the AI assistant.
+             </DialogDescription>
            </DialogHeader>
+
           <ContextPanel
-            onContextChange={setMessageContext}
-            className="h-auto max-h-[70vh] overflow-y-auto"
-            // Pass any props needed by ContextPanel internally, e.g., initial values
-            // Currently selected context is managed by `messageContext` state here.
+            // className="h-auto max-h-[70vh] overflow-y-auto" 
+            selectedClientId={selectedClientId}
+            selectedLenderIds={selectedLenderIds}
+            onSelectedClientChange={setSelectedClientId}
+            onSelectedLendersChange={setSelectedLenderIds}
           />
-          <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="secondary">
-                  Close
-                </Button>
-              </DialogClose>
-          </DialogFooter>
+          {/* Footer is handled internally by ContextPanel */}
         </DialogContent>
       </Dialog>
 

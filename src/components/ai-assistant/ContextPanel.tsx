@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Button } from "@/components/ui/button";
+// Re-add Popover imports for the footer
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { Info, X, Filter, Search } from "lucide-react";
+// Re-add Info icon and Button for the footer popover
+import { Filter, Search, Info } from "lucide-react";
+import { Button } from "@/components/ui/button"; // Re-add Button import
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -18,36 +19,41 @@ import { supabase } from '@/integrations/supabase/client';
 import { Client, mapDbClientToClient } from '@/features/clients/types';
 
 interface ContextPanelProps {
-    contextPanelOpen: boolean; // Pass state for conditional rendering of close button
-    setContextPanelOpen: (isOpen: boolean | ((prev: boolean) => boolean)) => void; // Update setter type
+    // State Lifted Up
+    selectedClientId: string | null;
+    selectedLenderIds: string[];
+    onSelectedClientChange: (clientId: string | null) => void;
+    onSelectedLendersChange: (lenderIds: string[]) => void;
+    // End State Lifted Up
+
     onContextChange?: (context: {
       selectedLenderIds: string[];
       selectedDocumentIds: string[];
       selectedClientId?: string;
     }) => void;
-    className?: string; // Accept className from parent
+    className?: string;
 }
 
 const ContextPanel: React.FC<ContextPanelProps> = ({
-    contextPanelOpen,
-    setContextPanelOpen,
+    // State props
+    selectedClientId,
+    selectedLenderIds,
+    onSelectedClientChange,
+    onSelectedLendersChange,
+    // Other props
     onContextChange,
-    className // Receive className from parent
+    className
 }) => {
     const { user } = useAuth();
     const { lenders: allUserLenders, isLoading: isLoadingLenders, fetchLenders } = useLenders();
     const { documents: allUserDocuments, isLoading: isLoadingDocuments, fetchDocuments } = useLenderDocuments();
 
-    // Client state
+    // Internal Component State
     const [clients, setClients] = useState<Client[]>([]);
     const [isLoadingClients, setIsLoadingClients] = useState(true);
-    const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
     const [clientSearchTerm, setClientSearchTerm] = useState('');
-
-    // Lender state
-    const [selectedLenderIds, setSelectedLenderIds] = useState<string[]>([]);
     const [lenderTypeFilter, setLenderTypeFilter] = useState<string>('All');
-    const [initializedLenders, setInitializedLenders] = useState(false); // Flag for initial load
+    const [initialLenderSelectionDone, setInitialLenderSelectionDone] = useState(false); // Flag for initial selection
 
     const uniqueLenderTypes = useMemo(() => {
         if (!allUserLenders || allUserLenders.length === 0) return [];
@@ -101,7 +107,7 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
         }, {} as Record<string, string[]>);
     }, [allUserDocuments, isLoadingDocuments]);
 
-    // Fetch base data
+    // Fetch base data (lenders, documents)
     useEffect(() => {
         if (user) {
             fetchLenders();
@@ -109,28 +115,34 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
         }
     }, [user, fetchLenders, fetchDocuments]);
 
-    // Initialize selected lenders once data is available (Select All by default)
-    useEffect(() => {
-        if (!isLoadingLenders && !isLoadingDocuments && lendersWithDocuments.length > 0 && !initializedLenders) {
-            const allLenderIds = lendersWithDocuments.map(lender => lender.id);
-            setSelectedLenderIds(allLenderIds);
-            setInitializedLenders(true); // Set flag to prevent re-initialization
+     // Effect to automatically select all lenders with documents on initial load
+     useEffect(() => {
+        // Ensure data is loaded, lenders with documents exist, and we haven't done this yet
+        if (!isLoadingLenders && !isLoadingDocuments && lendersWithDocuments.length > 0 && !initialLenderSelectionDone) {
+            const allLenderIdsWithDocs = lendersWithDocuments.map(l => l.id);
+            // Only automatically select if *no* lenders are currently selected (avoids overriding previous state/user action)
+            if (selectedLenderIds.length === 0) {
+                 onSelectedLendersChange(allLenderIdsWithDocs);
+            }
+            // Mark as done regardless of whether we changed the selection,
+            // to prevent it from running again if the user deselects all manually later.
+            setInitialLenderSelectionDone(true);
         }
-    }, [lendersWithDocuments, isLoadingLenders, isLoadingDocuments, initializedLenders]);
+     }, [isLoadingLenders, isLoadingDocuments, lendersWithDocuments, selectedLenderIds, onSelectedLendersChange, initialLenderSelectionDone]);
 
 
-    // Propagate context changes
+    // Propagate context changes (now depends on props)
     useEffect(() => {
         const relevantDocumentIds = selectedLenderIds.flatMap(lenderId => documentIdsByLender[lenderId] || []);
         const newContextData = {
-            selectedLenderIds,
+            selectedLenderIds, // Use prop
             selectedDocumentIds: relevantDocumentIds,
-            selectedClientId: selectedClientId || undefined
+            selectedClientId: selectedClientId || undefined // Use prop
         };
         if (onContextChange) {
             onContextChange(newContextData);
         }
-    }, [selectedLenderIds, documentIdsByLender, selectedClientId, onContextChange]);
+    }, [selectedLenderIds, selectedClientId, documentIdsByLender, onContextChange]);
 
     const filteredLenders = useMemo(() => {
         return lendersWithDocuments.filter(lender =>
@@ -138,202 +150,185 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
         );
     }, [lendersWithDocuments, lenderTypeFilter]);
 
-    // MODIFIED: Handle individual lender checkbox changes
+    // Handle individual lender checkbox changes (call prop function)
     const handleCheckboxChange = (lenderId: string, checked: boolean | string) => {
-         if (checked) {
-             // Select only this one lender
-             setSelectedLenderIds([lenderId]);
+         const isChecked = !!checked; // Ensure boolean value
+         if (isChecked) {
+             // Add the lender ID if it's not already included
+             if (!selectedLenderIds.includes(lenderId)) {
+                 onSelectedLendersChange([...selectedLenderIds, lenderId]);
+             }
          } else {
-             // If unchecking the currently selected one, deselect all
-             setSelectedLenderIds([]);
+             // Remove the lender ID
+             onSelectedLendersChange(selectedLenderIds.filter(id => id !== lenderId));
          }
     };
 
-    // MODIFIED: Handle "Select All" checkbox changes
+
+    // Handle "Select All" checkbox changes (call prop function)
     const handleSelectAllVisible = (checked: boolean | string) => {
         const visibleLenderIds = filteredLenders.map(l => l.id);
         if (checked) {
-            // Select all visible lenders
-            setSelectedLenderIds(visibleLenderIds);
+            // Select only the visible ones, preserving any already selected hidden ones
+            const currentlySelectedHidden = selectedLenderIds.filter(id => !visibleLenderIds.includes(id));
+            onSelectedLendersChange([...currentlySelectedHidden, ...visibleLenderIds]);
         } else {
-            // Deselect all lenders
-            setSelectedLenderIds([]);
+            // Deselect only the visible ones, preserving any already selected hidden ones
+            onSelectedLendersChange(selectedLenderIds.filter(id => !visibleLenderIds.includes(id)));
         }
     };
 
-    // MODIFIED: Determine if "Select All" should be checked
+    // Determine if "Select All" should be checked (use prop)
     const allVisibleSelected = useMemo(() => {
-        if (filteredLenders.length === 0) return false; // Can't select all if none are visible
-        // Check if the number of selected lenders matches the number of filtered lenders
-        // AND every filtered lender is included in the selected list
-        return selectedLenderIds.length === filteredLenders.length &&
-               filteredLenders.every(l => selectedLenderIds.includes(l.id));
+        if (filteredLenders.length === 0) return false;
+        // Check if *every* lender in the filtered list is included in the selectedLenderIds prop
+        return filteredLenders.every(l => selectedLenderIds.includes(l.id));
     }, [selectedLenderIds, filteredLenders]);
 
 
-    // Apply the passed className to the root element, and add necessary internal layout styles
     return (
         <div className={cn(
             "bg-white flex flex-col h-full border-l border-gray-200", // Base internal layout
-            className // Allow parent to control width, display etc.
+            className
         )}>
-            {/* Header */}
-            <div className="p-4 border-b flex items-center justify-between shrink-0">
-                <h3 className="font-medium text-base">Context Panel</h3>
-                {/* Show close button only on smaller screens (lg:hidden) */}
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setContextPanelOpen(false)}
-                    className="text-muted-foreground lg:hidden"
-                    aria-label="Close context panel"
-                >
-                    <X className="h-4 w-4" />
-                </Button>
-            </div>
 
-            {/* Scrollable Content */}
-            <ScrollArea className="flex-1">
-                <div className="p-4"> {/* Add padding here */}
-                    <Tabs defaultValue="lenders"> {/* <-- Changed default value to lenders */}
-                        <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="clients">Clients</TabsTrigger>
-                            <TabsTrigger value="lenders">Lenders</TabsTrigger>
-                        </TabsList>
+            {/* Scrollable Content Area */}
+            <ScrollArea className="flex-1 p-4">
+                <Tabs defaultValue="lenders" className="h-full flex flex-col">
+                    <TabsList className="grid w-full grid-cols-2 shrink-0">
+                        <TabsTrigger value="clients">Clients</TabsTrigger>
+                        <TabsTrigger value="lenders">Lenders</TabsTrigger>
+                    </TabsList>
 
-                        {/* Clients Tab */}
-                        <TabsContent value="clients" className="space-y-4 mt-4">
-                             <div className="relative">
-                                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    placeholder="Search clients..."
-                                    value={clientSearchTerm}
-                                    onChange={(e) => setClientSearchTerm(e.target.value)}
-                                    className="pl-8"
-                                />
-                            </div>
-                            <Card>
-                                {/* Added max-h-48 and overflow-y-auto */}
-                                <CardContent className="p-3 space-y-3 max-h-48 overflow-y-auto">
-                                    {isLoadingClients ? (
-                                         Array.from({ length: 3 }).map((_, index) => (
-                                            <div key={index} className="flex items-center space-x-2 py-1">
-                                                <Skeleton className="h-4 w-4" />
-                                                <Skeleton className="h-4 w-[70%]" />
-                                            </div>
-                                        ))
-                                    ) : filteredClients.length > 0 ? (
-                                        filteredClients.map((client) => (
-                                            <div key={client.id} className="flex items-center space-x-2">
-                                                <Checkbox
-                                                    id={`client-${client.id}`}
-                                                    checked={selectedClientId === client.id}
-                                                    onCheckedChange={(checked) => {
-                                                        setSelectedClientId(checked ? client.id : null);
-                                                    }}
-                                                />
-                                                <Label
-                                                    htmlFor={`client-${client.id}`}
-                                                    className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                                                >
-                                                    {client.firstName} {client.lastName}
-                                                </Label>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <div className="text-sm text-gray-500 text-center py-2">
-                                            No clients found
+                    {/* Clients Tab */}
+                    <TabsContent value="clients" className="space-y-4 mt-4 flex-1 overflow-y-auto">
+                        <div className="relative shrink-0">
+                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Search clients..."
+                                value={clientSearchTerm}
+                                onChange={(e) => setClientSearchTerm(e.target.value)}
+                                className="pl-8"
+                            />
+                        </div>
+                        <div className="p-3 space-y-3">
+                            {isLoadingClients ? (
+                                Array.from({ length: 3 }).map((_, index) => (
+                                    <div key={index} className="flex items-center space-x-2 py-1">
+                                        <Skeleton className="h-4 w-4" />
+                                        <Skeleton className="h-4 w-[70%]" />
+                                    </div>
+                                ))
+                            ) : filteredClients.length > 0 ? (
+                                filteredClients.map((client) => (
+                                    <div key={client.id} className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id={`client-${client.id}`}
+                                            checked={selectedClientId === client.id} // Use prop
+                                            onCheckedChange={(checked) => {
+                                                onSelectedClientChange(checked ? client.id : null); // Use prop callback
+                                            }}
+                                        />
+                                        <Label
+                                            htmlFor={`client-${client.id}`}
+                                            className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                        >
+                                            {client.firstName} {client.lastName}
+                                        </Label>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-sm text-gray-500 text-center py-2">
+                                    No clients found
+                                </div>
+                            )}
+                        </div>
+                    </TabsContent>
+
+                    {/* Lenders Tab */}
+                    <TabsContent value="lenders" className="mt-4 space-y-4 flex-1 overflow-y-auto">
+                        <div className="flex justify-between items-center mb-2 shrink-0">
+                            <h4 className="text-sm font-medium">Available Lenders</h4>
+                            <Select
+                                value={lenderTypeFilter}
+                                onValueChange={(value) => setLenderTypeFilter(value)}
+                                disabled={isLoadingLenders || lendersWithDocuments.length === 0}
+                            >
+                                <SelectTrigger className="w-[110px] h-8 text-xs">
+                                    <Filter className="h-3 w-3 mr-1" />
+                                    <SelectValue placeholder="Filter type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="All">All Types</SelectItem>
+                                    {uniqueLenderTypes.map(type => (
+                                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="p-3 space-y-3">
+                            {isLoadingLenders ? (
+                                Array.from({ length: 4 }).map((_, index) => (
+                                    <div key={index} className="flex items-center space-x-2 py-1">
+                                        <Skeleton className="h-4 w-4" />
+                                        <Skeleton className="h-4 w-[80%]" />
+                                    </div>
+                                ))
+                            ) : filteredLenders.length > 0 ? (
+                                <>
+                                    <div className="flex items-center space-x-2 pb-2 border-b mb-2">
+                                        <Checkbox
+                                            id="select-all-lenders"
+                                            checked={allVisibleSelected} // Use memoized value based on prop
+                                            onCheckedChange={handleSelectAllVisible} // Calls prop callback
+                                            aria-label="Select all visible lenders"
+                                            disabled={filteredLenders.length === 0}
+                                        />
+                                        <Label
+                                            htmlFor="select-all-lenders"
+                                            className={cn("text-sm font-medium leading-none cursor-pointer", filteredLenders.length === 0 && "text-gray-400 cursor-not-allowed")}
+                                        >
+                                            Select All ({filteredLenders.length})
+                                        </Label>
+                                    </div>
+
+                                    {filteredLenders.map((lender) => (
+                                        <div key={lender.id} className="flex items-center space-x-2">
+                                            <Checkbox
+                                                id={`lender-${lender.id}`}
+                                                checked={selectedLenderIds.includes(lender.id)} // Use prop
+                                                onCheckedChange={(checked) => handleCheckboxChange(lender.id, checked)} // Calls prop callback
+                                            />
+                                            <Label
+                                                htmlFor={`lender-${lender.id}`}
+                                                className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                            >
+                                                {lender.name}
+                                                {lender.type && <span className="text-xs text-gray-500 ml-1">({lender.type})</span>}
+                                            </Label>
                                         </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </TabsContent>
-
-                        {/* Lenders Tab */}
-                        <TabsContent value="lenders" className="mt-4 space-y-4">
-                            <div className="flex justify-between items-center mb-2">
-                                <h4 className="text-sm font-medium">Available Lenders</h4>
-                                <Select
-                                    value={lenderTypeFilter}
-                                    onValueChange={(value) => setLenderTypeFilter(value)}
-                                    disabled={isLoadingLenders || lendersWithDocuments.length === 0}
-                                >
-                                    <SelectTrigger className="w-[110px] h-8 text-xs">
-                                        <Filter className="h-3 w-3 mr-1" />
-                                        <SelectValue placeholder="Filter type" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="All">All Types</SelectItem>
-                                        {uniqueLenderTypes.map(type => (
-                                            <SelectItem key={type} value={type}>{type}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <Card>
-                                {/* Added max-h-60 and overflow-y-auto */}
-                                <CardContent className="p-3 space-y-3 max-h-60 overflow-y-auto">
-                                    {isLoadingLenders ? (
-                                         Array.from({ length: 4 }).map((_, index) => (
-                                            <div key={index} className="flex items-center space-x-2 py-1">
-                                                <Skeleton className="h-4 w-4" />
-                                                <Skeleton className="h-4 w-[80%]" />
-                                            </div>
-                                        ))
-                                    ) : filteredLenders.length > 0 ? (
-                                        <>
-                                            {/* Select/Deselect All Checkbox */}
-                                            <div className="flex items-center space-x-2 pb-2 border-b mb-2">
-                                                <Checkbox
-                                                    id="select-all-lenders"
-                                                    checked={allVisibleSelected} // Use the memoized value
-                                                    onCheckedChange={handleSelectAllVisible}
-                                                    aria-label="Select all visible lenders"
-                                                    disabled={filteredLenders.length === 0}
-                                                />
-                                                <Label
-                                                    htmlFor="select-all-lenders"
-                                                    className={cn("text-sm font-medium leading-none cursor-pointer", filteredLenders.length === 0 && "text-gray-400 cursor-not-allowed")}
-                                                >
-                                                    Select All ({filteredLenders.length})
-                                                </Label>
-                                            </div>
-
-                                            {/* Lenders List */}
-                                            {filteredLenders.map((lender) => (
-                                                <div key={lender.id} className="flex items-center space-x-2">
-                                                    <Checkbox
-                                                        id={`lender-${lender.id}`} // Ensure unique ID
-                                                        checked={selectedLenderIds.includes(lender.id)}
-                                                        // Use the modified handler
-                                                        onCheckedChange={(checked) => handleCheckboxChange(lender.id, checked)}
-                                                    />
-                                                    <Label
-                                                        htmlFor={`lender-${lender.id}`} // Match unique ID
-                                                        className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                                                    >
-                                                        {lender.name}
-                                                        {lender.type && <span className="text-xs text-gray-500 ml-1">({lender.type})</span>}
-                                                    </Label>
-                                                </div>
-                                            ))}
-                                        </>
-                                    ) : (
-                                        <div className="text-sm text-gray-500 text-center py-2">
-                                            {lendersWithDocuments.length === 0 ? "No lenders found with docs." : "No lenders match filter."}
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </TabsContent>
-                    </Tabs>
-                </div>
+                                    ))}
+                                </>
+                            ) : (
+                                <div className="text-sm text-gray-500 text-center py-2">
+                                    {lendersWithDocuments.length === 0 ? "No lenders found with docs." : "No lenders match filter."}
+                                </div>
+                            )}
+                        </div>
+                    </TabsContent>
+                </Tabs>
             </ScrollArea>
 
-            {/* Footer */}
+            {/* --- Footer Re-added --- */}
             <div className="p-4 border-t shrink-0 bg-gray-50">
+                 {/* Use props for counts */}
                  <p className="text-xs text-gray-600 mb-2 text-center">
-                    {selectedClientId ? '1 client,' : 'No client,'} {/* MODIFIED: Show correct count based on selection logic */} {selectedLenderIds.length === filteredLenders.length && filteredLenders.length > 1 ? 'All' : selectedLenderIds.length} lender(s) selected
+                    {selectedClientId ? '1 client,' : 'No client,'}
+                    {' '}
+                    {/* Indicate 'All visible' if the filter is active and all shown are selected */}
+                    {allVisibleSelected && filteredLenders.length > 0 ? (lenderTypeFilter !== 'All' && filteredLenders.length === lendersWithDocuments.length ? 'All visible' : (allVisibleSelected && filteredLenders.length == lendersWithDocuments.length ? 'All' : selectedLenderIds.length)) : selectedLenderIds.length}
+                    {' '}
+                    lender(s) selected
                 </p>
                 <Popover>
                     <PopoverTrigger asChild>
@@ -352,6 +347,7 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
                     </PopoverContent>
                 </Popover>
             </div>
+            {/* --- End Footer --- */}
         </div>
     );
 };

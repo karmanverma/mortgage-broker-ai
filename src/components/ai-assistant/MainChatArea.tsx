@@ -9,6 +9,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"; // For icon buttons
 import { format } from 'date-fns';
+// Import Client type
+import { Client } from '@/features/clients/types';
 
 interface Message {
     sender: 'user' | 'ai';
@@ -50,6 +52,12 @@ interface MainChatAreaProps {
     onOpenContextDialog: () => void; // Handler for context dialog
     isAssistPage: boolean; // Controls initial view behavior
     showChatSessionInfo: boolean; // Controls visibility of session info box
+
+    // --- Props for Context Tooltip ---
+    selectedClientId: string | null;
+    selectedLenderIds: string[];
+    clients: Client[]; // Add clients list
+    // --- End Context Tooltip Props ---
 }
 
 const MainChatArea: React.FC<MainChatAreaProps> = ({
@@ -73,6 +81,11 @@ const MainChatArea: React.FC<MainChatAreaProps> = ({
     onOpenContextDialog, // Receive context dialog handler
     isAssistPage,
     showChatSessionInfo,
+    // --- Receive Context Tooltip Props ---
+    selectedClientId,
+    selectedLenderIds,
+    clients,
+    // --- End Receive Context Tooltip Props ---
 }) => {
     const [showSuggestions, setShowSuggestions] = useState(true);
     const conversationStartDate = getConversationStartDate(messages);
@@ -114,7 +127,6 @@ const MainChatArea: React.FC<MainChatAreaProps> = ({
             </ScrollArea>
 
             {/* Suggestions & Input Container */}
-            {/* Removed border-t from here */}
             <div className="px-4 pb-2 pt-2 bg-white"> 
                 {/* Suggestions Area (Conditional) */}
                 {showSuggestions && messages.length === 0 && !isLoadingHistory && messageSuggestions.length > 0 ? (
@@ -144,7 +156,7 @@ const MainChatArea: React.FC<MainChatAreaProps> = ({
                 )}
 
                 {/* Chat Input Area - Placed below suggestions */}
-                 <div className="flex items-end gap-2 pt-2"> {/* Add padding-top if suggestions are shown or possible */}
+                 <div className="flex items-end gap-2 pt-2"> 
                      <ChatInput
                          newMessage={newMessage}
                          setNewMessage={setNewMessage}
@@ -154,6 +166,11 @@ const MainChatArea: React.FC<MainChatAreaProps> = ({
                          isWaitingForAI={isWaitingForAI}
                          className="flex-1" // Make input take remaining space
                          onOpenContextDialog={onOpenContextDialog} // Pass the handler down
+                         // --- Pass selection props to ChatInput ---
+                         selectedClientId={selectedClientId}
+                         selectedLenderIds={selectedLenderIds}
+                         clients={clients}
+                         // --- End Pass selection props ---
                      />
                  </div>
             </div>
