@@ -2,6 +2,7 @@ import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Loader2, Download, Trash2, FileText } from 'lucide-react';
 import { LenderDocument } from '@/integrations/supabase/types';
 
@@ -25,7 +26,7 @@ const ManageDocumentsTab: React.FC<ManageDocumentsTabProps> = ({
         <ScrollArea className="h-[300px] mt-4 border rounded-md">
             {isLoading ? (
                 <div className="flex justify-center items-center h-full p-4">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    <LoadingSpinner size="md" className="text-muted-foreground" />
                     <span className="ml-2 text-muted-foreground">Loading documents...</span>
                 </div>
             ) : documents.length === 0 ? (
@@ -69,7 +70,7 @@ const ManageDocumentsTab: React.FC<ManageDocumentsTabProps> = ({
                                         title="Download"
                                         className="h-7 w-7"
                                     >
-                                        {isProcessing(doc.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                                        {isProcessing(doc.id) ? <LoadingSpinner size="sm" /> : <Download className="h-4 w-4" />}
                                     </Button>
                                     <Button
                                         variant="ghost"
@@ -80,7 +81,7 @@ const ManageDocumentsTab: React.FC<ManageDocumentsTabProps> = ({
                                         aria-label={`Delete ${doc.name}`}
                                         title="Delete"
                                     >
-                                        {isProcessing(doc.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                                        {isProcessing(doc.id) ? <LoadingSpinner size="sm" /> : <Trash2 className="h-4 w-4" />}
                                     </Button>
                                 </TableCell>
                             </TableRow>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, MoreHorizontal } from 'lucide-react';
+import { Plus, Search, Filter, MoreHorizontal, LayoutGrid, List as ListIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -56,7 +56,7 @@ const ClientsPage = () => {
   return (
     <div className="p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Clients</h1>
+        {/* <h1 className="text-2xl font-bold tracking-tight">Clients</h1> Removed main page title as it is now in header */}
         <Button onClick={() => setIsAddClientOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Add New Client
@@ -88,9 +88,15 @@ const ClientsPage = () => {
             </SelectContent>
           </Select>
           <Tabs value={view} onValueChange={(v) => setView(v as 'grid' | 'list')} className="hidden md:block">
-            <TabsList>
-              <TabsTrigger value="grid">Grid</TabsTrigger>
-              <TabsTrigger value="list">List</TabsTrigger>
+            <TabsList className="p-1 h-auto">
+              <TabsTrigger value="grid" className="p-2">
+                <LayoutGrid className="h-4 w-4" />
+                <span className="sr-only">Grid View</span>
+              </TabsTrigger>
+              <TabsTrigger value="list" className="p-2">
+                <ListIcon className="h-4 w-4" />
+                <span className="sr-only">List View</span>
+              </TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -198,14 +204,6 @@ const ClientsPage = () => {
                   </div>
                 </div>
               </CardContent>
-              <CardFooter className="border-t bg-gray-50 px-6 py-3">
-                <Button variant="ghost" className="w-full" onClick={(e) => {
-                  e.stopPropagation();
-                  // View loan applications
-                }}>
-                  View Loan Applications
-                </Button>
-              </CardFooter>
             </Card>
           ))}
         </div>
@@ -231,7 +229,7 @@ const ClientsPage = () => {
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-background divide-y divide-gray-200">
               {filteredClients.map((client) => (
                 <tr 
                   key={client.id}

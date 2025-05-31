@@ -1,8 +1,8 @@
-
 import React, { useRef, useEffect, useMemo } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { SendHorizonal, Loader2, Settings, Info } from 'lucide-react'; // Added Info icon
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { SendHorizonal, Loader2, Info, Brain } from 'lucide-react'; // Added Brain icon
 import { cn } from '@/lib/utils';
 // Import Tooltip components
 import {
@@ -126,10 +126,10 @@ const ChatInput: React.FC<ChatInputProps> = ({
                   {...props}
                 />
                 
-                <div className="absolute right-2 bottom-2 flex items-center gap-1"> 
+                <div className="absolute right-2 bottom-2 flex items-center gap-1 pointer-events-auto z-0"> 
                    <Tooltip>
                      <TooltipTrigger asChild>
-                       <span className="text-gray-500 cursor-help" tabIndex={0}> 
+                       <span className="text-muted-foreground cursor-help" tabIndex={0}> 
                          <Info className="h-4 w-4" />
                        </span>
                      </TooltipTrigger>
@@ -143,22 +143,21 @@ const ChatInput: React.FC<ChatInputProps> = ({
                     variant="ghost"
                     size="icon"
                     onClick={onOpenContextDialog}
-                    className="h-8 w-8 text-gray-500 hover:text-blue-600"
+                    className="h-8 w-8 text-muted-foreground hover:text-primary relative z-0"
                     aria-label="Toggle context"
                   >
-                    <Settings className="h-4 w-4" />
+                    <Brain className="h-4 w-4" />
                   </Button>
 
                   <Button
                     type="submit"
-                    variant="ghost"
                     size="icon"
-                    disabled={isWaitingForAI || !newMessage.trim()}
-                    className="h-8 w-8 text-gray-500 hover:text-blue-600 disabled:text-gray-300"
+                    disabled={!newMessage.trim() || isWaitingForAI}
+                    className="h-8 w-8 text-muted-foreground hover:text-primary disabled:text-muted-foreground/50"
                     aria-label="Send message"
                   >
                     {isWaitingForAI ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <LoadingSpinner size="sm" className="text-blue-500" />
                     ) : (
                       <SendHorizonal className="h-4 w-4" />
                     )}

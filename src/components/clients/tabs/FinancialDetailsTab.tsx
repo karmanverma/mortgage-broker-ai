@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Label } from "@/components/ui/label";
 import { Tables } from '@/integrations/supabase/types';
 import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 // Define type alias
 type Client = Tables<"clients">;
@@ -50,61 +52,111 @@ const renderJsonData = (data: unknown | null | undefined) => {
 
 interface FinancialDetailsTabProps {
     data: Client;
+    isEditing?: boolean;
+    onEdit?: () => void;
+    onChange?: (data: Client) => void;
+    onSave?: () => void;
 }
 
-const FinancialDetailsTab: React.FC<FinancialDetailsTabProps> = ({ data: client }) => {
+const FinancialDetailsTab: React.FC<FinancialDetailsTabProps> = ({ data: client, isEditing, onEdit, onChange, onSave }) => {
+    const [local, setLocal] = React.useState(client);
+    React.useEffect(() => { setLocal(client); }, [client]);
+    const handleField = (field: keyof Client, value: any) => {
+        const updated = { ...local, [field]: value };
+        setLocal(updated);
+        onChange && onChange(updated);
+    };
 
     return (
         <div className="space-y-6">
-            {/* Section 1: Employment & Income */}
             <Card>
-                <CardHeader>
-                    <CardTitle>Employment & Income</CardTitle>
-                    <CardDescription>Client's employment status and income details.</CardDescription>
+                <CardHeader className="flex flex-row justify-between items-center">
+                    <div>
+                        <CardTitle>Employment & Income</CardTitle>
+                        <CardDescription>Client's employment status and income details.</CardDescription>
+                    </div>
+                    {isEditing ? (
+                        <Button size="sm" onClick={onSave}>Save</Button>
+                    ) : (
+                        <Button size="sm" variant="outline" onClick={onEdit}>Edit</Button>
+                    )}
                 </CardHeader>
                 <CardContent>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                         <div>
-                            <DetailItemDisplay label="Employment Status" value={client.employment_status} />
-                            <DetailItemDisplay label="Employer Name" value={client.employer_name} />
-                            <DetailItemDisplay label="Job Title" value={client.job_title} />
+                            {isEditing ? (
+                                <div className="space-y-3">
+                                    <Label>Employment Status</Label>
+                                    <Input value={local.employment_status || ''} onChange={e => handleField('employment_status', e.target.value)} />
+                                    <Label>Employer Name</Label>
+                                    <Input value={local.employer_name || ''} onChange={e => handleField('employer_name', e.target.value)} />
+                                    <Label>Job Title</Label>
+                                    <Input value={local.job_title || ''} onChange={e => handleField('job_title', e.target.value)} />
+                                </div>
+                            ) : (
+                                <>
+                                    <DetailItemDisplay label="Employment Status" value={client.employment_status} />
+                                    <DetailItemDisplay label="Employer Name" value={client.employer_name} />
+                                    <DetailItemDisplay label="Job Title" value={client.job_title} />
+                                </>
+                            )}
                         </div>
                         <div>
-                            <DetailItemDisplay label="Annual Income" value={formatCurrency(client.annual_income)} />
-                            <DetailItemDisplay label="Credit Score" value={client.credit_score ?? 'N/A'} />
-                            {/* Add other income related fields if they exist */}
+                            {isEditing ? (
+                                <div className="space-y-3">
+                                    <Label>Annual Income</Label>
+                                    <Input value={local.annual_income || ''} onChange={e => handleField('annual_income', e.target.value)} />
+                                    <Label>Credit Score</Label>
+                                    <Input value={local.credit_score || ''} onChange={e => handleField('credit_score', e.target.value)} />
+                                </div>
+                            ) : (
+                                <>
+                                    <DetailItemDisplay label="Annual Income" value={formatCurrency(client.annual_income)} />
+                                    <DetailItemDisplay label="Credit Score" value={client.credit_score ?? 'N/A'} />
+                                </>
+                            )}
                         </div>
-                     </div>
+                    </div>
                 </CardContent>
             </Card>
-
-            {/* Section 2: Assets */}
-             <Card>
+            <Card>
                 <CardHeader>
                     <CardTitle>Assets</CardTitle>
                     <CardDescription>Overview of client's assets.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    {renderJsonData(client.assets)}
-                    {/* Provide a message if no asset data exists */} 
-                    {!client.assets && <p className="text-muted-foreground">No asset information provided.</p>}
+                    {isEditing ? (
+                        <div className="space-y-3">
+                            <Label>Assets (JSON)</Label>
+                            <Input value={typeof local.assets === 'string' ? local.assets : JSON.stringify(local.assets || {})} onChange={e => handleField('assets', e.target.value)} />
+                        </div>
+                    ) : (
+                        <>
+                            {renderJsonData(client.assets)}
+                            {!client.assets && <p className="text-muted-foreground">No asset information provided.</p>}
+                        </>
+                    )}
                 </CardContent>
             </Card>
-
-             {/* Section 3: Liabilities */}
-             <Card>
+            <Card>
                 <CardHeader>
                     <CardTitle>Liabilities</CardTitle>
                     <CardDescription>Overview of client's liabilities.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                     {renderJsonData(client.liabilities)}
-                     {/* Provide a message if no liability data exists */}
-                    {!client.liabilities && <p className="text-muted-foreground">No liability information provided.</p>}
+                    {isEditing ? (
+                        <div className="space-y-3">
+                            <Label>Liabilities (JSON)</Label>
+                            <Input value={typeof local.liabilities === 'string' ? local.liabilities : JSON.stringify(local.liabilities || {})} onChange={e => handleField('liabilities', e.target.value)} />
+                        </div>
+                    ) : (
+                        <>
+                            {renderJsonData(client.liabilities)}
+                            {!client.liabilities && <p className="text-muted-foreground">No liability information provided.</p>}
+                        </>
+                    )}
                 </CardContent>
             </Card>
-
-            {/* Add Edit button or functionality later */}
         </div>
     );
 };

@@ -1,48 +1,47 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 60 17% 94%; /* isabelline */
+    --foreground: 191 49% 15%; /* gunmetal */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 60 33% 98%; /* baby powder */
+    --card-foreground: 191 49% 15%; /* gunmetal */
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 60 33% 98%; /* baby powder */
+    --popover-foreground: 191 49% 15%; /* gunmetal */
 
-    --primary: 261 73.3% 63.7%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 187 81% 31%; /* teal */
+    --primary-foreground: 60 33% 98%; /* baby powder */
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 171 18% 92%; /* antiflash white */
+    --secondary-foreground: 191 49% 15%; /* gunmetal */
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 171 18% 92%; /* antiflash white */
+    --muted-foreground: 60 3% 38%; /* dim gray */
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 171 18% 92%; /* antiflash white */
+    --accent-foreground: 191 49% 15%; /* gunmetal */
 
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 60 33% 98%; /* baby powder */
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 261 73.3% 63.7%;
+    --border: 60 11% 89%; /* alabaster */
+    --input: 60 11% 89%; /* alabaster */
+    --ring: 187 81% 31%; /* teal */
 
     --radius: 0.5rem;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 261 73.3% 63.7%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 261 73.3% 63.7%;
+    --sidebar-background: 60 11% 89%; /* alabaster */
+    --sidebar-foreground: 60 3% 38%; /* dim gray */
+    --sidebar-primary: 187 81% 31%; /* teal */
+    --sidebar-primary-foreground: 60 33% 98%; /* baby powder */
+    --sidebar-accent: 171 18% 92%; /* antiflash white */
+    --sidebar-accent-foreground: 191 49% 15%; /* gunmetal */
+    --sidebar-border: 60 11% 89%; /* alabaster */
+    --sidebar-ring: 187 81% 31%; /* teal */
   }
 
   .dark {
@@ -97,18 +96,18 @@
 
 @layer components {
   .gradient-heading {
-    @apply text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-brand-500;
+    @apply text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-teal-500;
   }
   
   .feature-card {
-    @apply bg-white p-6 rounded-xl shadow-feature border border-gray-100 transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
+    @apply bg-[#fcfcf9] p-6 rounded-xl shadow-feature border border-[#e7e7e1] transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:bg-[#e8efee];
   }
   
   .nav-link {
-    @apply text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium transition-colors;
+    @apply text-[#64645e] hover:text-[#14343b] px-3 py-2 text-sm font-medium transition-colors;
   }
   
   .hero-gradient {
-    @apply bg-gradient-to-br from-brand-50 via-white to-blue-50;
+    @apply bg-gradient-to-br from-[#f3f3ee] via-[#fcfcf9] to-[#e8efee];
   }
 }

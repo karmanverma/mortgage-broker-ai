@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { LayoutList, Grid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import {
   Table,
   TableBody,
@@ -13,11 +14,14 @@ import {
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Lender } from "@/hooks/useLenders"; 
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText } from "lucide-react";
 import { LenderTableRow } from "./LenderTableRow";
 import { LenderCard } from "./LenderCard";
 import { NoLendersFound } from "./NoLendersFound";
+
+// Use the Lender type from useLenders
+import { Lender } from '@/hooks/useLenders';
 
 interface LendersListProps {
   filteredLenders: Lender[];
@@ -26,7 +30,8 @@ interface LendersListProps {
   selectedLenders: string[];
   toggleLenderSelection: (id: string) => void;
   selectAll: () => void;
-  handleOpenManageDocuments: (lender: Lender) => void; // <-- Updated prop name
+  handleOpenManageDocuments: (lender: Lender) => void;
+  handleOpenEditLender: (lender: Lender) => void;
   setIsAddLenderOpen: (isOpen: boolean) => void;
   resetFilters: () => void;
   searchTerm: string;
@@ -35,26 +40,27 @@ interface LendersListProps {
   isLoading: boolean;
 }
 
-export const LendersList = ({
+export const LendersList: React.FC<LendersListProps> = ({
   filteredLenders,
   view,
   setView,
   selectedLenders,
   toggleLenderSelection,
   selectAll,
-  handleOpenManageDocuments, // <-- Updated prop name
+  handleOpenManageDocuments,
+  handleOpenEditLender,
   setIsAddLenderOpen,
   resetFilters,
   searchTerm,
   selectedType,
   selectedStatus,
   isLoading,
-}: LendersListProps) => {
+}) => {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center p-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
-        <p className="text-gray-500">Loading lenders...</p>
+        <LoadingSpinner size="lg" className="text-blue-500 mb-4" />
+        <p className="text-muted-foreground">Loading lenders...</p>
       </div>
     );
   }
@@ -73,39 +79,7 @@ export const LendersList = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center ml-auto justify-end">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                className={view === "table" ? "bg-accent" : ""}
-                onClick={() => setView("table")}
-              >
-                <LayoutList className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Table View</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                className={view === "grid" ? "bg-accent" : ""}
-                onClick={() => setView("grid")}
-              >
-                <Grid className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Grid View</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
+      {/* View toggle has been moved to LenderSearch component */}
 
       {view === "table" && (
         <div className="rounded-md border">
@@ -149,8 +123,8 @@ export const LendersList = ({
             <LenderCard
               key={lender.id}
               lender={lender}
-              // Assuming LenderCard will also need a way to open the dialog
-              handleOpenManageDocuments={handleOpenManageDocuments} // <-- Pass down updated prop
+              handleOpenDocumentUpload={handleOpenManageDocuments}
+              handleOpenEditLender={handleOpenEditLender}
             />
           ))}
         </div>

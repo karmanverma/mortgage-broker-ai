@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Save, Clock, UserCircle, Trash2, Loader2, AlertCircle } from 'lucide-react';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -151,7 +152,7 @@ const NotesTab: React.FC<NotesTabProps> = ({ data }) => {
                     <div className="flex justify-end">
                         <Button onClick={handleSaveNote} disabled={!newNoteContent.trim() || isSaving}>
                             {isSaving ? (
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                <LoadingSpinner size="sm" className="mr-2" />
                             ) : (
                                 <Save className="h-4 w-4 mr-2" />
                             )}

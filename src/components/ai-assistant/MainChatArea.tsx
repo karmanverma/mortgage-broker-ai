@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
-import { Sparkles, MessageSquarePlus } from "lucide-react"; // Removed unused icons
+import { Sparkles, MessageSquarePlus, Library } from "lucide-react"; // Removed unused icons
 import ChatControls from "./ChatControls";
 import ChatMessages from './ChatMessages';
-import MessageSuggestions from './MessageSuggestions';
 import ChatInput from './ChatInput';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,6 +30,10 @@ const getConversationStartDate = (msgs: Message[]): string => {
     return format(earliestDate, 'PPPpp'); // Format like: Jun 21, 2024, 2:30 PM
 };
 
+// Utility to get first user message
+const getFirstUserMessage = (msgs: Message[]): Message | undefined =>
+    msgs.find(msg => msg.sender === 'user');
+
 interface MainChatAreaProps {
     messages: Message[];
     isLoadingHistory: boolean;
@@ -48,10 +51,10 @@ interface MainChatAreaProps {
     onSaveAsPdf: () => void;
     onCopyToClipboard: () => void;
     onPrint: () => void;
-    messageSuggestions?: string[];
     onOpenContextDialog: () => void; // Handler for context dialog
     isAssistPage: boolean; // Controls initial view behavior
     showChatSessionInfo: boolean; // Controls visibility of session info box
+    inputContainerClassName?: string; // Add inputContainerClassName prop
 
     // --- Props for Context Tooltip ---
     selectedClientId: string | null;
@@ -77,119 +80,137 @@ const MainChatArea: React.FC<MainChatAreaProps> = ({
     onSaveAsPdf,
     onCopyToClipboard,
     onPrint,
-    messageSuggestions = [],
     onOpenContextDialog, // Receive context dialog handler
     isAssistPage,
     showChatSessionInfo,
+    inputContainerClassName, // Receive inputContainerClassName prop
     // --- Receive Context Tooltip Props ---
     selectedClientId,
     selectedLenderIds,
     clients,
     // --- End Receive Context Tooltip Props ---
 }) => {
-    const [showSuggestions, setShowSuggestions] = useState(true);
-    const conversationStartDate = getConversationStartDate(messages);
 
     // Function to render the main chat content (messages + input)
     const renderChatContent = () => (
-        <div className="flex-1 flex flex-col overflow-hidden bg-white"> {/* Ensure white background */}
-            {/* Chat Session Info Box (visible after first message) */}
-            {showChatSessionInfo && currentSessionId && (
-                <Card className="mx-4 mt-4 mb-0 shadow-sm border-l-4 border-primary">
-                    <CardHeader className="p-3 flex flex-row justify-between items-center">
-                        <div>
-                            <CardTitle className="text-sm font-medium">Chat First Message</CardTitle>
-                             <CardDescription className="text-xs">
-                                Chat Date: {conversationStartDate} | Chat ID: {currentSessionId.substring(0, 8)}...
-                            </CardDescription>
-                        </div>
-                         {/* Chat Actions Dropdown/Buttons */}
-                         <ChatControls
-                            sessionId={currentSessionId}
-                            onDeleteConversation={onDeleteConversation}
-                            onSaveAsPdf={onSaveAsPdf}
-                            onCopyToClipboard={onCopyToClipboard}
-                            onPrint={onPrint}
-                            renderAsIcons={true}
-                        />
-                    </CardHeader>
-                </Card>
-            )}
-
+        <div className="flex-1 flex flex-col overflow-hidden bg-background"> {/* Ensure background */}
             {/* Chat Messages Area */}
-            <ScrollArea className="flex-1 overflow-y-auto p-4 bg-white">
+            <ScrollArea className="flex-1 overflow-y-auto bg-background">
                 <ChatMessages
-                    messages={messages}
+                    messages={isWaitingForAI ? [...messages, {
+                        id: 'pending-ai',
+                        sender: 'ai',
+                        message: '',
+                        created_at: new Date().toISOString(),
+                        session_id: currentSessionId || '',
+                        user_id: user?.id || ''
+                    }] : messages}
                     isLoadingHistory={isLoadingHistory}
                     conversationError={conversationError}
                 />
                 <div ref={messagesEndRef} /> {/* Scroll anchor */}
             </ScrollArea>
 
-            {/* Suggestions & Input Container */}
-            <div className="px-4 pb-2 pt-2 bg-white"> 
-                {/* Suggestions Area (Conditional) */}
-                {showSuggestions && messages.length === 0 && !isLoadingHistory && messageSuggestions.length > 0 ? (
-                    <MessageSuggestions
-                        suggestions={messageSuggestions}
-                        onSelectSuggestion={(suggestion) => {
-                            setNewMessage(suggestion);
-                            textareaRef.current?.focus();
-                        }}
-                        isVisible={showSuggestions}
-                        onClose={() => setShowSuggestions(false)}
+            {/* Chat Input Area - sticky to bottom when chat is selected */}
+            <div className={inputContainerClassName ? `${inputContainerClassName} pb-2 pt-2 bg-background mx-1 sticky bottom-0 z-10` : "pb-2 pt-2 bg-background mx-1 sticky bottom-0 z-10"}>
+                <div className="flex items-end gap-2 pt-2"> 
+                    <ChatInput
+                        newMessage={newMessage}
+                        setNewMessage={setNewMessage}
+                        handleSendMessage={handleSendMessage} // Pass the wrapper
+                        handleKeyDown={handleKeyDown}
+                        textareaRef={textareaRef}
+                        isWaitingForAI={isWaitingForAI}
+                        className="flex-1" // Make input take remaining space
+                        onOpenContextDialog={onOpenContextDialog} // Pass the handler down
+                        // --- Pass selection props to ChatInput ---
+                        selectedClientId={selectedClientId}
+                        selectedLenderIds={selectedLenderIds}
+                        clients={clients}
+                        // --- End Pass selection props ---
                     />
-                 // Show "Show Suggestions" button only if suggestions are hidden AND available
-                ) : (messages.length === 0 && !isLoadingHistory && messageSuggestions.length > 0 && !showSuggestions && 
-                    <div className="flex justify-end py-1">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setShowSuggestions(true)}
-                            className="text-xs text-muted-foreground hover:text-foreground"
-                            aria-label="Show suggestions"
-                        >
-                            <Sparkles className="h-4 w-4 mr-1" />
-                            Show Suggestions
-                        </Button>
-                    </div>
-                )}
-
-                {/* Chat Input Area - Placed below suggestions */}
-                 <div className="flex items-end gap-2 pt-2"> 
-                     <ChatInput
-                         newMessage={newMessage}
-                         setNewMessage={setNewMessage}
-                         handleSendMessage={handleSendMessage} // Pass the wrapper
-                         handleKeyDown={handleKeyDown}
-                         textareaRef={textareaRef}
-                         isWaitingForAI={isWaitingForAI}
-                         className="flex-1" // Make input take remaining space
-                         onOpenContextDialog={onOpenContextDialog} // Pass the handler down
-                         // --- Pass selection props to ChatInput ---
-                         selectedClientId={selectedClientId}
-                         selectedLenderIds={selectedLenderIds}
-                         clients={clients}
-                         // --- End Pass selection props ---
-                     />
-                 </div>
+                </div>
             </div>
         </div>
     );
 
     return (
-        <div className="flex-1 flex flex-col overflow-hidden relative w-full h-full bg-white">
+        <div className="flex-1 flex flex-col overflow-hidden relative w-full h-full bg-background">
             {/* Conditional Content Area based on isAssistPage and currentSessionId */}
             {isAssistPage ? (
-                renderChatContent()
+                <div>
+                    {showChatSessionInfo && currentSessionId && (
+                        <div className="mt-4 mb-0">
+                            <div className="p-3 flex flex-row justify-between items-center bg-background flex-wrap gap-2">
+                                <div>
+                                    <span className="text-base font-normal block">
+                                        {(() => {
+                                            const firstUserMsg = getFirstUserMessage(messages);
+                                            return firstUserMsg
+                                                ? firstUserMsg.message
+                                                : 'No user message yet.';
+                                        })()}
+                                    </span>
+                                    <span className="text-xs mt-1 block">
+                                        Chat Date: {getConversationStartDate(messages)} | Chat ID: {currentSessionId.substring(0, 8)}...
+                                    </span>
+                                </div>
+                                <div className="flex flex-row items-center gap-2">
+                                    <ChatControls
+                                        sessionId={currentSessionId}
+                                        onDeleteConversation={onDeleteConversation}
+                                        onSaveAsPdf={onSaveAsPdf}
+                                        onCopyToClipboard={onCopyToClipboard}
+                                        onPrint={onPrint}
+                                        renderAsIcons={false}
+                                    />
+                                </div>
+                            </div>
+                            <div className="border-b border-gray-200 w-full" />
+                        </div>
+                    )}
+                    {renderChatContent()}
+                </div>
             ) : (
                 currentSessionId ? (
-                     renderChatContent()
+                    <div>
+                        {showChatSessionInfo && currentSessionId && (
+                            <div className="mt-4 mb-0">
+                                <div className="p-3 flex flex-row justify-between items-center bg-background flex-wrap gap-2">
+                                    <div>
+                                        <span className="text-base font-normal block">
+                                            {(() => {
+                                                const firstUserMsg = getFirstUserMessage(messages);
+                                                return firstUserMsg
+                                                    ? firstUserMsg.message
+                                                    : 'No user message yet.';
+                                            })()}
+                                        </span>
+                                        <span className="text-xs mt-1 block">
+                                            Chat Date: {getConversationStartDate(messages)} | Chat ID: {currentSessionId.substring(0, 8)}...
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-row items-center gap-2">
+                                        <ChatControls
+                                            sessionId={currentSessionId}
+                                            onDeleteConversation={onDeleteConversation}
+                                            onSaveAsPdf={onSaveAsPdf}
+                                            onCopyToClipboard={onCopyToClipboard}
+                                            onPrint={onPrint}
+                                            renderAsIcons={false}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="border-b border-gray-200 w-full" />
+                            </div>
+                        )}
+                        {renderChatContent()}
+                    </div>
                 ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-white">
-                        <MessageSquarePlus className="h-16 w-16 text-gray-400 mb-4" />
-                        <h3 className="text-xl font-semibold text-gray-700 mb-2">No Chat Selected</h3>
-                        <p className="text-gray-500 mb-4">
+                    <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-background">
+                        <MessageSquarePlus className="h-16 w-16 text-muted-foreground mb-4" />
+                        <h3 className="text-xl font-semibold text-foreground mb-2">No Chat Selected</h3>
+                        <p className="text-muted-foreground mb-4">
                             Select an existing conversation or start a new one.
                         </p>
                     </div>

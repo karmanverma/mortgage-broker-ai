@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/contexts/AuthContext";
@@ -102,7 +103,14 @@ const ForgotPassword = () => {
               </div>
 
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Sending..." : "Send reset link"}
+                {isLoading ? (
+                  <div className="flex items-center">
+                    <LoadingSpinner size="sm" className="mr-2 text-white" />
+                    Sending...
+                  </div>
+                ) : (
+                  "Send reset link"
+                )}
               </Button>
 
               <div className="text-center">

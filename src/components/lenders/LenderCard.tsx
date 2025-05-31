@@ -35,11 +35,13 @@ import { getFileUrl } from "@/integrations/supabase/client";
 interface LenderCardProps {
   lender: Lender;
   handleOpenDocumentUpload: (lender: Lender) => void;
+  handleOpenEditLender: (lender: Lender) => void;
 }
 
 export const LenderCard = ({
   lender,
   handleOpenDocumentUpload,
+  handleOpenEditLender,
 }: LenderCardProps) => {
   const { deleteLender } = useLenders();
   const { documents } = useLenderDocuments();
@@ -80,7 +82,7 @@ export const LenderCard = ({
                 <FileText className="h-4 w-4 mr-2" />
                 View Documents
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleOpenEditLender(lender)}>
                 <Edit className="h-4 w-4 mr-2" />
                 Edit
               </DropdownMenuItem>
@@ -136,7 +138,12 @@ export const LenderCard = ({
             )}
             
             <div className="flex items-center space-x-2 pt-2">
-              <Button size="sm" variant="outline" className="w-full">
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="w-full"
+                onClick={() => handleOpenEditLender(lender)}
+              >
                 <Edit className="h-4 w-4 mr-2" />
                 Edit
               </Button>
@@ -155,11 +162,13 @@ export const LenderCard = ({
                 </span>
               </div>
               <Button 
-                size="sm"
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
                 onClick={() => handleOpenDocumentUpload(lender)}
+                title="Add document"
               >
-                <Plus className="h-4 w-4 mr-2" />
-                Add
+                <Plus className="h-4 w-4" />
               </Button>
             </div>
             

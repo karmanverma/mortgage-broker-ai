@@ -1,9 +1,13 @@
 // src/hooks/useLenders.tsx
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client'; // Import the configured client
-import { Lender } from '@/integrations/supabase/types';
+import { Tables } from '@/integrations/supabase/types';
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
+import { useActivityAndNotification } from './useActivityAndNotification';
+
+// Define Lender type using Tables utility
+export type Lender = Tables<'lenders'>;
 
 export interface NewLenderData {
   name: string;
@@ -16,6 +20,7 @@ export interface NewLenderData {
 }
 
 export function useLenders() {
+  const { logActivityAndNotify } = useActivityAndNotification();
   const { user } = useAuth();
   const { toast } = useToast();
   const [lenders, setLenders] = useState<Lender[]>([]);
@@ -93,6 +98,32 @@ export function useLenders() {
         description: `${newLender.name} has been added successfully.`,
       });
 
+      // Log activity and notification
+      if (data) {
+        await logActivityAndNotify(
+          {
+            action_type: 'lender_added',
+            lender_id: data.id,
+            description: `Lender ${data.name} added`,
+            user_id: user.id,
+            created_at: new Date().toISOString(),
+            client_id: null,
+            document_id: null,
+            id: undefined,
+          },
+          {
+            user_id: user.id,
+            type: 'lender_added',
+            entity_id: data.id,
+            entity_type: 'lender',
+            message: `A new lender (${data.name}) was added.`,
+            read: false,
+            created_at: new Date().toISOString(),
+            id: undefined,
+          }
+        );
+      }
+
       await fetchLenders();
 
     } catch (err: any) {
@@ -131,12 +162,32 @@ export function useLenders() {
         description: `${nameToDelete} has been deleted successfully.`,
       });
 
-      // Refresh the list after successful deletion
-      // Option 1: Refetch from server
-      await fetchLenders();
+      // Log activity and notification
+      await logActivityAndNotify(
+        {
+          action_type: 'lender_deleted',
+          lender_id: lenderId,
+          description: `${nameToDelete} deleted`,
+          user_id: user.id,
+          created_at: new Date().toISOString(),
+          client_id: null,
+          document_id: null,
+          id: undefined,
+        },
+        {
+          user_id: user.id,
+          type: 'lender_deleted',
+          entity_id: lenderId,
+          entity_type: 'lender',
+          message: `${nameToDelete} was deleted.`,
+          read: false,
+          created_at: new Date().toISOString(),
+          id: undefined,
+        }
+      );
 
-      // Option 2: Update state locally (faster UI, assumes success)
-      // setLenders(prevLenders => prevLenders.filter(lender => lender.id !== lenderId));
+      // Refresh the list after successful deletion
+      await fetchLenders();
 
     } catch (err: any) {
       console.error("useLenders: Error deleting lender:", err);
@@ -150,5 +201,76 @@ export function useLenders() {
   };
 
 
-  return { lenders, isLoading, error, addLender, deleteLender, fetchLenders }; // Add deleteLender to return object
+  const updateLender = async (updatedLender: Lender) => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to update a lender.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    console.log(`useLenders: Updating lender with ID: ${updatedLender.id}`);
+    try {
+      const { error } = await supabase
+        .from('lenders')
+        .update({
+          name: updatedLender.name,
+          type: updatedLender.type,
+          contact_name: updatedLender.contact_name,
+          contact_email: updatedLender.contact_email,
+          contact_phone: updatedLender.contact_phone,
+          status: updatedLender.status,
+          notes: updatedLender.notes,
+        })
+        .eq('id', updatedLender.id)
+        .eq('user_id', user.id); // Security check: ensure user owns the lender
+
+      if (error) throw error;
+
+      toast({
+        title: "Lender Updated",
+        description: `${updatedLender.name} has been updated successfully.`,
+      });
+
+      // Log activity and notification
+      await logActivityAndNotify(
+        {
+          action_type: 'lender_updated',
+          lender_id: updatedLender.id,
+          description: `Lender ${updatedLender.name} updated`,
+          user_id: user.id,
+          created_at: new Date().toISOString(),
+          client_id: null,
+          document_id: null,
+          id: undefined,
+        },
+        {
+          user_id: user.id,
+          type: 'lender_updated',
+          entity_id: updatedLender.id,
+          entity_type: 'lender',
+          message: `Lender ${updatedLender.name} was updated.`,
+          read: false,
+          created_at: new Date().toISOString(),
+          id: undefined,
+        }
+      );
+
+      // Refresh the list after successful update
+      await fetchLenders();
+
+    } catch (err: any) {
+      console.error("useLenders: Error updating lender:", err);
+      setError(err.message || 'Failed to update lender');
+      toast({
+        title: "Error",
+        description: `Could not update ${updatedLender.name}. ${err.message}`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  return { lenders, isLoading, error, addLender, updateLender, deleteLender, fetchLenders };
 }

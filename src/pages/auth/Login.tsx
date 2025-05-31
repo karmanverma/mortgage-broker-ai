@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { 
@@ -11,6 +10,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,6 +21,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [staySignedIn, setStaySignedIn] = useState(true); // Default to true
   
   const { signIn, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -37,7 +38,7 @@ const Login = () => {
 
     try {
       console.log('Login form submitted, attempting to sign in');
-      await signIn(email, password);
+      await signIn(email, password); // Only pass two arguments, ignore persistence for now
       // Auth state change will handle navigation to /app
     } catch (error: any) {
       console.error('Login form error:', error);
@@ -61,7 +62,7 @@ const Login = () => {
   const formIsProcessing = isSubmitting || isLoading;
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center p-4 bg-gray-50">
+    <div className="min-h-screen flex flex-col justify-center items-center p-4 bg-background">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <Link to="/" className="inline-block">
@@ -69,14 +70,14 @@ const Login = () => {
               <div className="h-8 w-8 bg-brand-600 rounded-md flex items-center justify-center">
                 <span className="text-white font-bold">MB</span>
               </div>
-              <span className="text-xl font-semibold text-gray-900">MortgagePro</span>
+              <span className="text-xl font-semibold text-foreground">MortgagePro</span>
             </div>
           </Link>
-          <h1 className="mt-6 text-2xl font-bold text-gray-900">Welcome back</h1>
-          <p className="mt-2 text-gray-600">Sign in to your account to continue</p>
+          <h1 className="mt-6 text-2xl font-bold text-foreground">Welcome back</h1>
+          <p className="mt-2 text-muted-foreground">Sign in to your account to continue</p>
         </div>
 
-        <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
+        <div className="bg-background p-8 rounded-xl shadow-sm border border-gray-200">
           {error && (
             <Alert variant="destructive" className="mb-6">
               <AlertCircle className="h-4 w-4" />
@@ -86,10 +87,10 @@ const Login = () => {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-1">
-              <Label htmlFor="email">Email address</Label>
+              <Label htmlFor="email" className="text-foreground">Email address</Label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                  <Mail className="h-4 w-4 text-gray-400" />
+                  <Mail className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <Input
                   id="email"
@@ -106,14 +107,14 @@ const Login = () => {
 
             <div className="space-y-1">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <Link to="/forgot-password" className="text-sm text-brand-600 hover:text-brand-700">
+                <Label htmlFor="password" className="text-foreground">Password</Label>
+                <Link to="/forgot-password" className="text-sm text-brand-600 hover:text-brand-500">
                   Forgot password?
                 </Link>
               </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                  <Lock className="h-4 w-4 text-gray-400" />
+                  <Lock className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <Input
                   id="password"
@@ -135,19 +136,34 @@ const Login = () => {
                     disabled={formIsProcessing}
                   >
                     {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-500" />
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
                     ) : (
-                      <Eye className="h-4 w-4 text-gray-500" />
+                      <Eye className="h-4 w-4 text-muted-foreground" />
                     )}
                   </Button>
                 </div>
               </div>
             </div>
 
+            {/* Stay signed in checkbox */}
+            <div className="flex items-center">
+              <input
+                id="staySignedIn"
+                type="checkbox"
+                checked={staySignedIn}
+                onChange={e => setStaySignedIn(e.target.checked)}
+                className="h-4 w-4 text-brand-600 border-gray-300 rounded focus:ring-brand-500"
+                disabled={formIsProcessing}
+              />
+              <label htmlFor="staySignedIn" className="ml-2 block text-sm text-foreground">
+                Stay signed in
+              </label>
+            </div>
+
             <Button type="submit" className="w-full" disabled={formIsProcessing}>
               {formIsProcessing ? (
                 <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                  <LoadingSpinner size="sm" className="mr-2 text-white" />
                   Signing in...
                 </div>
               ) : (
@@ -165,7 +181,7 @@ const Login = () => {
                 <span className="w-full border-t border-gray-200" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="bg-white px-2 text-gray-500">Or continue with</span>
+                <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
               </div>
             </div>
 
@@ -206,7 +222,7 @@ const Login = () => {
         </div>
 
         <div className="mt-6 text-center">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted-foreground">
             Don't have an account?{" "}
             <Link to="/signup" className="font-medium text-brand-600 hover:text-brand-500">
               Sign up

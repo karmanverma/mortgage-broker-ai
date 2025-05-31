@@ -29,7 +29,7 @@ const MessageSuggestions: React.FC<MessageSuggestionsProps> = ({
         size="icon"
         onClick={onClose}
         // Adjusted positioning slightly due to reduced padding
-        className="absolute top-0.5 right-0.5 h-6 w-6 text-gray-400 hover:text-gray-600"
+        className="absolute top-0.5 right-0.5 h-6 w-6 text-muted-foreground hover:text-foreground"
         aria-label="Hide suggestions"
       >
         <X className="h-4 w-4" />

@@ -25,6 +25,7 @@ import { useToast } from "@/components/ui/use-toast";
 import ManageDocumentsTab from './ManageDocumentsTab';
 import UploadDocumentTab from './UploadDocumentTab';
 import { Loader2 } from 'lucide-react';
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 interface ManageDocumentsDialogProps {
   lender: Lender | null;
@@ -185,7 +186,7 @@ const ManageDocumentsDialog: React.FC<ManageDocumentsDialogProps> = ({
               disabled={isDeleting}
               className="bg-red-600 hover:bg-red-700"
             >
-              {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {isDeleting ? <LoadingSpinner size="sm" className="mr-2" /> : null}
               {isDeleting ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>

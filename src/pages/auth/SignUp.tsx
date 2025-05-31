@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -320,7 +321,14 @@ const SignUp = () => {
             </div>
 
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Creating account..." : "Create account"}
+              {isLoading ? (
+                <div className="flex items-center">
+                  <LoadingSpinner size="sm" className="mr-2 text-white" />
+                  Creating account...
+                </div>
+              ) : (
+                "Create account"
+              )}
             </Button>
           </form>
 

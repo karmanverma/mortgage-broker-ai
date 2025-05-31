@@ -173,6 +173,38 @@ export function useAuthProvider() {
     };
   }, [navigate, fetchProfile]);
 
+  // Restore the original signIn function: only email and password
+  const signIn = async (email: string, password: string) => {
+    try {
+      console.log('Signing in with:', email);
+      setIsLoading(true);
+      
+      // Use the default Supabase client and its session persistence
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        console.error('Sign in error:', error);
+        throw error;
+      }
+      
+      console.log('Sign in successful:', data.session ? 'Session created' : 'No session');
+      return data;
+    } catch (error: any) {
+      console.error('Sign in error caught:', error);
+      toast({
+        variant: "destructive",
+        title: "Error signing in",
+        description: error.message,
+      });
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const signUp = async (email: string, password: string, metadata: { first_name: string; last_name: string; company_name?: string }) => {
     try {
       setIsLoading(true);
@@ -194,37 +226,6 @@ export function useAuthProvider() {
       toast({
         variant: "destructive",
         title: "Error creating account",
-        description: error.message,
-      });
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const signIn = async (email: string, password: string) => {
-    try {
-      console.log('Signing in with:', email);
-      setIsLoading(true);
-      
-      // Simplified sign-in without persisting session
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (error) {
-        console.error('Sign in error:', error);
-        throw error;
-      }
-      
-      console.log('Sign in successful:', data.session ? 'Session created' : 'No session');
-      return data;
-    } catch (error: any) {
-      console.error('Sign in error caught:', error);
-      toast({
-        variant: "destructive",
-        title: "Error signing in",
         description: error.message,
       });
       throw error;

@@ -188,7 +188,7 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
 
     return (
         <div className={cn(
-            "bg-white flex flex-col h-full border-l border-gray-200", // Base internal layout
+            "bg-background flex flex-col h-full border-l border-gray-200", // Base internal layout
             className
         )}>
 
@@ -238,7 +238,7 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
                                     </div>
                                 ))
                             ) : (
-                                <div className="text-sm text-gray-500 text-center py-2">
+                                <div className="text-sm text-muted-foreground text-center py-2">
                                     No clients found
                                 </div>
                             )}
@@ -286,7 +286,7 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
                                         />
                                         <Label
                                             htmlFor="select-all-lenders"
-                                            className={cn("text-sm font-medium leading-none cursor-pointer", filteredLenders.length === 0 && "text-gray-400 cursor-not-allowed")}
+                                            className={cn("text-sm font-medium leading-none cursor-pointer", filteredLenders.length === 0 && "text-muted-foreground cursor-not-allowed")}
                                         >
                                             Select All ({filteredLenders.length})
                                         </Label>
@@ -304,13 +304,13 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
                                                 className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                                             >
                                                 {lender.name}
-                                                {lender.type && <span className="text-xs text-gray-500 ml-1">({lender.type})</span>}
+                                                {lender.type && <span className="text-xs text-muted-foreground ml-1">({lender.type})</span>}
                                             </Label>
                                         </div>
                                     ))}
                                 </>
                             ) : (
-                                <div className="text-sm text-gray-500 text-center py-2">
+                                <div className="text-sm text-muted-foreground text-center py-2">
                                     {lendersWithDocuments.length === 0 ? "No lenders found with docs." : "No lenders match filter."}
                                 </div>
                             )}
@@ -322,7 +322,7 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
             {/* --- Footer Re-added --- */}
             <div className="p-4 border-t shrink-0 bg-gray-50">
                  {/* Use props for counts */}
-                 <p className="text-xs text-gray-600 mb-2 text-center">
+                 <p className="text-xs text-muted-foreground mb-2 text-center">
                     {selectedClientId ? '1 client,' : 'No client,'}
                     {' '}
                     {/* Indicate 'All visible' if the filter is active and all shown are selected */}

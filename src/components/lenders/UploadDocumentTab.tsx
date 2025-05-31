@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Label } from "@/components/ui/label";
 import { Loader2, UploadCloud, CheckCircle, XCircle, FileText } from 'lucide-react';
 
@@ -125,7 +126,7 @@ const UploadDocumentTab: React.FC<UploadDocumentTabProps> = ({
                 className="w-full"
             >
                 {isUploading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <LoadingSpinner size="sm" className="mr-2" />
                 ) : (
                     <UploadCloud className="mr-2 h-4 w-4" />
                 )}

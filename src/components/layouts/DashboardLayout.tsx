@@ -1,11 +1,22 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "../dashboard/Sidebar";
 import Header from "../dashboard/Header";
 
 const DashboardLayout = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Persist sidebar state in localStorage
+  const getSidebarInitial = () => {
+    if (typeof window !== 'undefined') {
+      const saved = window.localStorage.getItem('sidebarOpen');
+      if (saved !== null) return saved === 'true';
+    }
+    return true;
+  };
+  const [sidebarOpen, setSidebarOpen] = useState(getSidebarInitial);
+  useEffect(() => {
+    window.localStorage.setItem('sidebarOpen', sidebarOpen ? 'true' : 'false');
+  }, [sidebarOpen]);
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
@@ -13,11 +24,11 @@ const DashboardLayout = () => {
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
   return (
-    <div className="bg-gray-50 flex h-screen overflow-hidden">
+    <div className="bg-background flex h-screen overflow-hidden">
 
       {/* Mobile Sidebar (Overlay) */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 shadow-sm transform transition-transform duration-300 ease-in-out ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-sidebar border-r border-sidebar-border shadow-sm transform transition-transform duration-300 ease-in-out ${
           mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
         } lg:hidden`}
         aria-hidden={!mobileMenuOpen}
@@ -45,13 +56,13 @@ const DashboardLayout = () => {
       </div>
 
       {/* Main Content Area - Removed padding classes */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden relative z-0">
          {/* Header - Removed sidebar toggle props */}
          <Header
            toggleMobileMenu={toggleMobileMenu}
          />
          {/* Content Area - Allow vertical scrolling */}
-         <main className="flex-1 overflow-y-auto bg-gray-50/95 backdrop-blur-sm">
+         <main className="flex-1 overflow-y-auto bg-background relative z-0">
            <Outlet />
          </main>
       </div>

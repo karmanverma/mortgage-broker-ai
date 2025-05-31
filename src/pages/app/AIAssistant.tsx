@@ -14,15 +14,15 @@ import {
   DialogHeader, // Import DialogHeader
   DialogTitle,  // Import DialogTitle
   DialogDescription, // Import DialogDescription
-  DialogTrigger,
   DialogClose,
   DialogFooter
 } from "@/components/ui/dialog";
-import { MessageSquareText, Settings2 } from 'lucide-react'; // Icons for buttons
+import { MessageSquareText, Settings2, Library, Brain } from 'lucide-react'; // Icons for buttons
 // Added hook to get documents for context reconstruction
 import { useLenderDocuments } from '@/hooks/useLenderDocuments';
 // Import hook to fetch clients for tooltip
 import { useClients } from '@/hooks/useClients';
+import { useSearchParams } from 'react-router-dom';
 
 // Interface for individual messages remains the same
 interface Message {
@@ -54,6 +54,16 @@ const AIAssistantPage: React.FC = () => {
     fetchMessages,
   } = useConversations();
 
+  // --- Session from URL param ---
+  const [searchParams] = typeof window !== 'undefined' && window.location ? [new URLSearchParams(window.location.search)] : [null];
+  const sessionFromUrl = searchParams ? searchParams.get('session') : null;
+
+  useEffect(() => {
+    if (sessionFromUrl && sessionFromUrl !== currentSessionId) {
+      setActiveConversation(sessionFromUrl);
+    }
+  }, [sessionFromUrl, setActiveConversation, currentSessionId]);
+
   // Map raw messages for display
   const messages: Message[] = (apiMessages || []).map((msg: ConversationMessage) => ({
     sender: msg.sender as 'user' | 'ai',
@@ -79,13 +89,6 @@ const AIAssistantPage: React.FC = () => {
     console.log("AIAssistantPage: allUserClients updated: ", allUserClients);
   }, [allUserClients]);
   // --- End Logging ---
-
-  const [messageSuggestions] = useState([
-    "Show me this client's loan application status",
-    "Compare rates from selected lenders",
-    "What documents are still needed?",
-    "Summarize client's financial profile"
-  ]);
 
   // Fetch messages when the active conversation changes
   useEffect(() => {
@@ -309,20 +312,78 @@ ${msg.message}`;
   }, [toast]);
 
   return (
-    <div className="flex flex-col h-full items-center bg-white overflow-hidden relative p-4">
+    <div className="flex flex-col min-h-screen items-center bg-background overflow-auto relative p-4">
+      {/* Centered/empty state */}
+      {messages.length === 0 && !isLoadingHistory && !isWaitingForAI && (
+        <div className="flex flex-1 flex-col items-center justify-center w-full max-w-3xl mx-auto">
+          <div className="flex flex-col items-center gap-8 w-full">
+            <div className="flex flex-row items-center justify-center gap-6 w-full">
+              {/* Chat Input - 98% width */}
+              <div className="flex-1 flex flex-col items-center w-[98%] mx-auto">
+                <MainChatArea
+                  messages={[]}
+                  isLoadingHistory={false}
+                  conversationError={null}
+                  currentSessionId={currentSessionId}
+                  isWaitingForAI={false}
+                  user={user}
+                  messagesEndRef={messagesEndRef}
+                  textareaRef={textareaRef}
+                  newMessage={newMessage}
+                  setNewMessage={setNewMessage}
+                  handleSendMessage={handleSendMessage}
+                  handleKeyDown={handleKeyDown}
+                  onOpenContextDialog={() => setIsContextDialogOpen(true)}
+                  isAssistPage={true}
+                  showChatSessionInfo={false}
+                  onDeleteConversation={() => {}}
+                  onSaveAsPdf={() => {}}
+                  onCopyToClipboard={() => {}}
+                  onPrint={() => {}}
+                  selectedClientId={selectedClientId}
+                  selectedLenderIds={selectedLenderIds}
+                  clients={allUserClients}
+                  inputContainerClassName="w-[98%] max-w-[780px] mx-auto"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
-      {/* Floating Conversation Button & Dialog */}
+      {/* Main Chat Area Container (normal mode) */}
+      {(messages.length > 0 || isLoadingHistory || isWaitingForAI) && (
+        <div className="flex-1 flex flex-col w-[98%] max-w-[780px] mx-auto overflow-y-auto h-[80vh] min-h-[400px]">
+          <MainChatArea
+            messages={messages}
+            isLoadingHistory={isLoadingHistory && !!currentSessionId}
+            conversationError={messageError}
+            currentSessionId={currentSessionId}
+            isWaitingForAI={isWaitingForAI}
+            user={user}
+            messagesEndRef={messagesEndRef}
+            textareaRef={textareaRef}
+            newMessage={newMessage}
+            setNewMessage={setNewMessage}
+            handleSendMessage={handleSendMessage}
+            handleKeyDown={handleKeyDown}
+            onOpenContextDialog={() => setIsContextDialogOpen(true)}
+            isAssistPage={true}
+            showChatSessionInfo={!!currentSessionId}
+            onDeleteConversation={() => currentSessionId && handleDeleteConversation(currentSessionId)}
+            onSaveAsPdf={handleSaveAsPdf}
+            onCopyToClipboard={handleCopyToClipboard}
+            onPrint={handlePrint}
+            selectedClientId={selectedClientId}
+            selectedLenderIds={selectedLenderIds}
+            clients={allUserClients}
+            inputContainerClassName="w-[98%] max-w-[780px] mx-auto"
+          />
+        </div>
+      )}
+
+      {/* Conversation Dialog - not triggered by DialogTrigger anymore */}
       <Dialog open={isConversationDialogOpen} onOpenChange={setIsConversationDialogOpen}>
-        <DialogTrigger asChild>
-          <Button
-            variant="outline"
-            size="icon"
-            className="fixed left-4 top-1/2 -translate-y-1/2 z-10 rounded-full shadow-lg h-12 w-12"
-            aria-label="Conversations"
-          >
-            <MessageSquareText className="h-6 w-6" />
-          </Button>
-        </DialogTrigger>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Conversations</DialogTitle>
@@ -350,62 +411,27 @@ ${msg.message}`;
         </DialogContent>
       </Dialog>
 
-      {/* Main Chat Area Container */}
-      <div className="flex-1 flex flex-col w-full max-w-3xl overflow-hidden h-full">
-        <MainChatArea
-          messages={messages}
-          isLoadingHistory={isLoadingHistory && !!currentSessionId}
-          conversationError={messageError}
-          currentSessionId={currentSessionId}
-          isWaitingForAI={isWaitingForAI}
-          user={user}
-          messagesEndRef={messagesEndRef}
-          textareaRef={textareaRef}
-          newMessage={newMessage}
-          setNewMessage={setNewMessage}
-          handleSendMessage={handleSendMessage}
-          handleKeyDown={handleKeyDown}
-          onOpenContextDialog={() => setIsContextDialogOpen(true)}
-          isAssistPage={true}
-          showChatSessionInfo={!!currentSessionId}
-          onDeleteConversation={() => currentSessionId && handleDeleteConversation(currentSessionId)}
-          onSaveAsPdf={handleSaveAsPdf}
-          onCopyToClipboard={handleCopyToClipboard}
-          onPrint={handlePrint}
-          messageSuggestions={messageSuggestions}
-          // --- Pass selection state for tooltip ---
-          selectedClientId={selectedClientId}
-          selectedLenderIds={selectedLenderIds}
-          clients={allUserClients} // Pass the fetched clients list
-          // --- End Pass selection state ---
-        />
-      </div>
-
       {/* Context Panel Dialog */}
       <Dialog open={isContextDialogOpen} onOpenChange={setIsContextDialogOpen}>
         <DialogContent 
           className="sm:max-w-md p-0" 
-          aria-describedby="context-dialog-description" // Link description
+          aria-describedby="context-dialog-description"
         >
            <DialogHeader className="p-4 pb-2 border-b"> 
              <DialogTitle>Context</DialogTitle>
-             {/* Visually hidden description for screen readers */}
              <DialogDescription id="context-dialog-description" className="sr-only">
                Select a client and lenders to provide context for the AI assistant.
              </DialogDescription>
            </DialogHeader>
 
           <ContextPanel
-            // className="h-auto max-h-[70vh] overflow-y-auto" 
             selectedClientId={selectedClientId}
             selectedLenderIds={selectedLenderIds}
             onSelectedClientChange={setSelectedClientId}
             onSelectedLendersChange={setSelectedLenderIds}
           />
-          {/* Footer is handled internally by ContextPanel */}
         </DialogContent>
       </Dialog>
-
     </div>
   );
 };

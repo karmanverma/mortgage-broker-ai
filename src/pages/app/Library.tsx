@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -11,8 +11,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertTriangle, List, MoreHorizontal, Plus, Umbrella } from 'lucide-react';
 import { formatDistanceToNow, isValid, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast'; // Import useToast
+import { fetchFirstUserMessage } from './LibraryFirstUserMessage';
 
 const LibraryPage: React.FC = () => {
+  const [firstUserMessages, setFirstUserMessages] = useState<Record<string, string>>({});
+
   const { 
     conversations,
     loading: isLoadingList,
@@ -22,6 +25,26 @@ const LibraryPage: React.FC = () => {
     startNewConversation, // Use startNewConversation
     // deleteConversation, // Destructure if delete functionality is needed here
   } = useConversations();
+
+  // Fetch and cache first user message for each session
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchAllFirstUserMessages() {
+      if (!conversations || conversations.length === 0) return;
+      const userId = conversations[0]?.user_id;
+      const entries = await Promise.all(
+        conversations.map(async conv => {
+          const msg = await fetchFirstUserMessage(conv.session_id, userId);
+          return [conv.session_id, msg];
+        })
+      );
+      if (!cancelled) {
+        setFirstUserMessages(Object.fromEntries(entries));
+      }
+    }
+    fetchAllFirstUserMessages();
+    return () => { cancelled = true; };
+  }, [conversations]);
   
   const navigate = useNavigate();
   const { toast } = useToast(); // Initialize toast
@@ -29,7 +52,7 @@ const LibraryPage: React.FC = () => {
 
   const handleConversationSelect = (sessionId: string) => {
     setActiveConversation(sessionId); // Use setActiveConversation
-    navigate('/app/ai-assistant');
+    navigate(`/app/assistant?session=${sessionId}`);
   };
 
   const handleCreateNewThread = useCallback(async () => {
@@ -38,7 +61,7 @@ const LibraryPage: React.FC = () => {
       const newConv = await startNewConversation(); 
       if (newConv && newConv.session_id) {
         setActiveConversation(newConv.session_id); // Set the new conversation as active
-        navigate('/app/ai-assistant');
+        navigate(`/app/assistant?session=${newConv.session_id}`);
       } else {
          toast({ variant: "destructive", title: "Error", description: "Could not start a new conversation session." });
       }
@@ -123,8 +146,8 @@ const LibraryPage: React.FC = () => {
               const latestMessageDate = conv.created_at ? parseISO(conv.created_at) : null;
               const isValidDate = latestMessageDate && isValid(latestMessageDate);
               // Determine title - use RPC result directly if needed, or fallback
-              const displayTitle = conv.title || `Conversation ${conv.session_id.substring(0, 8)}...`;
-              // Use the latest message content as preview
+              // Show the user's first message as the title (fallback to message or session ID)
+              const displayTitle = firstUserMessages[conv.session_id] || `Conversation ${conv.session_id.substring(0, 8)}...`;
               const messagePreview = conv.message;
 
               return (
@@ -175,22 +198,6 @@ const LibraryPage: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header Section */}
-      <div className="flex items-center justify-between p-4 border-b bg-card sticky top-0 z-10">
-        <div className="flex items-center space-x-2">
-           <Umbrella className="h-6 w-6 text-primary"/>
-           <h1 className="text-xl font-semibold">Library</h1>
-        </div>
-        <div className="w-full max-w-xs sm:max-w-sm md:max-w-md">
-          <Input
-            type="search"
-            placeholder="Search your threads..."
-            className="w-full"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-      </div>
 
        {/* Navigation / Actions Section */}
        <div className="flex items-center justify-between p-4 border-b">

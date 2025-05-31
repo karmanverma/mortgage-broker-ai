@@ -1,5 +1,5 @@
 import React from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
@@ -25,6 +25,7 @@ import {
   CardTitle
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -46,6 +47,7 @@ import { AddLenderForm } from "@/components/lenders/AddLenderForm";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/components/ui/use-toast";
+import { formatDistanceToNow } from "date-fns";
 
 const fetchLenders = async () => {
   const { data, error } = await supabase
@@ -60,12 +62,13 @@ const fetchLenders = async () => {
   return data;
 };
 
-const fetchActivities = async () => {
+const fetchActivities = async (userId: string) => {
   console.log("Attempting to fetch activities...");
   const { data, error } = await supabase
     .from('activities')
-    .select('*, lender:lenders(name), document:documents(name)')
-    .limit(4)
+    .select('*, lender:lenders(name), client:clients(first_name, last_name), document:documents(name)')
+    .eq('user_id', userId)
+    .limit(5)
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -90,6 +93,11 @@ const fetchClients = async () => {
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const [isAddLenderOpen, setIsAddLenderOpen] = useState(false);
+
+  // Mock data for lender types and status options (should come from API in production)
+  const lenderTypes = ["Bank", "Credit Union", "Mortgage Broker", "Private Lender", "Other"];
+  const statusOptions = ["Active", "Pending", "Inactive"];
 
   const {
     data: lenders,
@@ -104,10 +112,34 @@ const Dashboard = () => {
     data: activities,
     isLoading: isLoadingActivities,
     error: activitiesError,
+    refetch: refetchActivities
   } = useQuery({
-    queryKey: ['activities'],
-    queryFn: fetchActivities,
+    queryKey: ['activities', user?.id],
+    queryFn: () => user ? fetchActivities(user.id) : Promise.resolve([]),
+    enabled: !!user,
   });
+  
+  // Set up real-time subscription for activities
+  useEffect(() => {
+    if (!user) return;
+    
+    const subscription = supabase
+      .channel('activities-channel')
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'activities',
+        filter: `user_id=eq.${user.id}`
+      }, () => {
+        // Refetch activities when a new one is added
+        refetchActivities();
+      })
+      .subscribe();
+    
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [user, refetchActivities]);
 
   const {
     data: clientsCount,
@@ -146,7 +178,7 @@ const Dashboard = () => {
   if (isLoadingLenders || isLoadingActivities || isLoadingClients) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-600"></div>
+        <LoadingSpinner size="lg" />
       </div>
     );
   }
@@ -159,7 +191,7 @@ const Dashboard = () => {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+        {/* <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1> Removed main page title as it is now in header */}
       </div>
 
       {/* Top Stat Cards */}
@@ -175,67 +207,182 @@ const Dashboard = () => {
         <Card className="lg:col-span-4">
           <CardHeader><CardTitle>Recent Activity</CardTitle><CardDescription>Latest actions and updates</CardDescription></CardHeader>
           <CardContent className="space-y-4">
-            {isLoadingActivities ? <p>Loading...</p> : activitiesError ? <p className="text-red-500">Error loading activities.</p> : activities && activities.length > 0 ? activities.map((activity: any) => (
-              <div key={activity.id} className="flex items-center space-x-4">
-                <Avatar className="h-9 w-9">
-                  <AvatarFallback>{activity.lender?.name ? getInitials(activity.lender.name) : 'A'}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1 space-y-1">
-                  <p className="text-sm font-medium leading-none">
-                    {activity.description || 'Activity description missing'}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {activity.lender?.name ? `Lender: ${activity.lender.name}` : ''}
-                    {activity.document?.name ? ` Document: ${activity.document.name}` : ''}
-                  </p>
-                </div>
-                <div className="ml-auto text-xs text-muted-foreground">
-                  {new Date(activity.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </div>
+            {isLoadingActivities ? (
+              <div className="flex justify-center py-8">
+                <LoadingSpinner size="md" />
               </div>
-            )) : <p className="text-gray-500">No recent activity.</p>}
+            ) : activitiesError ? (
+              <div className="p-4 bg-red-50 text-red-500 rounded-md">
+                <p>Error loading activities. Please try refreshing.</p>
+              </div>
+            ) : activities && activities.length > 0 ? activities.map((activity: any) => {
+              // Determine icon and text based on activity type
+              let avatarContent = 'A';
+              
+              if (activity.action_type?.includes('client')) {
+                avatarContent = activity.client ? getInitials(`${activity.client.first_name} ${activity.client.last_name}`) : 'C';
+              } else if (activity.action_type?.includes('lender')) {
+                avatarContent = activity.lender?.name ? getInitials(activity.lender.name) : 'L';
+              } else if (activity.action_type?.includes('document')) {
+                avatarContent = 'D';
+              }
+              
+              return (
+                <div key={activity.id} className="flex items-center space-x-4 p-2 hover:bg-muted/30 rounded-md transition-colors">
+                  <Avatar className="h-9 w-9">
+                    <AvatarFallback className={`
+                      ${activity.action_type?.includes('client') ? 'bg-blue-100 text-blue-600' : ''}
+                      ${activity.action_type?.includes('lender') ? 'bg-purple-100 text-purple-600' : ''}
+                      ${activity.action_type?.includes('document') ? 'bg-amber-100 text-amber-600' : ''}
+                    `}>
+                      {avatarContent}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 space-y-1">
+                    <p className="text-sm font-medium leading-none">
+                      {activity.description || 'Activity'}
+                    </p>
+                    <div className="text-xs text-muted-foreground flex flex-wrap gap-1">
+                      {activity.client && (
+                        <Badge variant="outline" className="px-1 py-0 h-4 bg-blue-50 text-blue-600 border-blue-200">
+                          {activity.client.first_name} {activity.client.last_name}
+                        </Badge>
+                      )}
+                      {activity.lender?.name && (
+                        <Badge variant="outline" className="px-1 py-0 h-4 bg-purple-50 text-purple-600 border-purple-200">
+                          {activity.lender.name}
+                        </Badge>
+                      )}
+                      {activity.document?.name && (
+                        <Badge variant="outline" className="px-1 py-0 h-4 bg-amber-50 text-amber-600 border-amber-200">
+                          {activity.document.name}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="ml-auto text-xs text-muted-foreground whitespace-nowrap">
+                    {formatDistanceToNow(new Date(activity.created_at), { addSuffix: true })}
+                  </div>
+                </div>
+              );
+            }) : (
+              <div className="py-8 text-center">
+                <p className="text-muted-foreground">No recent activity.</p>
+                <p className="text-xs text-muted-foreground mt-1">Activities will appear here as you work with clients and lenders.</p>
+              </div>
+            )}
           </CardContent>
           <CardFooter><Button variant="link" size="sm" className="ml-auto">View all activity</Button></CardFooter>
         </Card>
 
         <Card className="lg:col-span-3">
-          <CardHeader className="flex flex-row items-center"><div className="space-y-1.5"><CardTitle>Top Lenders</CardTitle><CardDescription>Most active lenders</CardDescription></div><Button variant="outline" size="icon" className="ml-auto h-8 w-8"><Search className="h-4 w-4" /></Button></CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              {isLoadingLenders ? (
-                <p>Loading lenders...</p>
-              ) : lendersError ? (
-                <p className="text-red-500">Error loading lenders.</p>
-              ) : lenders && lenders.length > 0 ? (
-                lenders.map((lender: any) => (
-                  <div key={lender.id} className="flex items-center space-x-4">
-                    <Avatar className="h-9 w-9">
-                      <AvatarFallback>{getInitials(lender.name)}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 space-y-1">
-                      <p className="text-sm font-medium leading-none">{lender.name}</p>
-                      <p className="text-sm text-muted-foreground">{lender.specialty || 'General Lending'}</p>
-                    </div>
-                    <Button variant="outline" size="sm" asChild>
-                      <Link to={`/app/lenders/${lender.id}`}>View</Link>
-                    </Button>
-                  </div>
-                ))
-              ) : (
-                <p className="text-gray-500">No lenders found.</p>
-              )}
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div>
+              <CardTitle>Lenders</CardTitle>
+              <CardDescription>Recent lender relationships</CardDescription>
             </div>
+            <Dialog open={isAddLenderOpen} onOpenChange={setIsAddLenderOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="outline" className="h-8 gap-1">
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Add</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add New Lender</DialogTitle>
+                  <DialogDescription>Enter lender details below</DialogDescription>
+                </DialogHeader>
+                <AddLenderForm 
+                  isOpen={isAddLenderOpen} 
+                  onClose={() => setIsAddLenderOpen(false)} 
+                  lenderTypes={lenderTypes}
+                  statusOptions={statusOptions}
+                />
+              </DialogContent>
+            </Dialog>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isLoadingLenders ? (
+              <p>Loading...</p>
+            ) : lendersError ? (
+              <p className="text-red-500">Error loading lenders.</p>
+            ) : lenders && lenders.length > 0 ? (
+              <div className="space-y-4">
+                {lenders.map((lender: any) => (
+                  <div key={lender.id} className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <Avatar className="h-9 w-9">
+                        <AvatarFallback className="bg-primary/10 text-primary">
+                          {getInitials(lender.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="text-sm font-medium">{lender.name}</p>
+                        <p className="text-xs text-muted-foreground">{lender.type || 'Traditional'}</p>
+                      </div>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem>
+                          View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          Contact
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="text-red-600">
+                          Remove
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <p className="text-muted-foreground text-sm">No lenders found</p>
+                <Dialog open={isAddLenderOpen} onOpenChange={setIsAddLenderOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="mt-2" size="sm">
+                      <Plus className="mr-1 h-4 w-4" /> Add Your First Lender
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add New Lender</DialogTitle>
+                      <DialogDescription>Enter lender details below</DialogDescription>
+                    </DialogHeader>
+                    <AddLenderForm 
+                      isOpen={isAddLenderOpen} 
+                      onClose={() => setIsAddLenderOpen(false)} 
+                      lenderTypes={lenderTypes}
+                      statusOptions={statusOptions}
+                    />
+                  </DialogContent>
+                </Dialog>
+              </div>
+            )}
           </CardContent>
-          <CardFooter><Button variant="outline" className="w-full" asChild><Link to="/app/lenders" className="w-full flex items-center justify-center">View all lenders<Building className="ml-2 h-4 w-4" /></Link></Button></CardFooter>
+          <CardFooter>
+            <Button variant="link" className="ml-auto" asChild>
+              <Link to="/app/lenders">View all lenders</Link>
+            </Button>
+          </CardFooter>
         </Card>
       </div>
 
       {/* Bottom Action Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="hover:bg-gray-50 transition-colors cursor-pointer"><Link to="/app/clients" className="block p-6"><div className="flex flex-col items-center text-center space-y-2"><div className="p-2 bg-purple-100 rounded-full"><UserPlus className="h-6 w-6 text-purple-600" /></div><h3 className="font-medium">Add New Client</h3><p className="text-sm text-gray-500">Create a client record</p></div></Link></Card>
-        <Card className="hover:bg-gray-50 transition-colors cursor-pointer"><Link to="/app/lenders" className="block p-6"><div className="flex flex-col items-center text-center space-y-2"><div className="p-2 bg-blue-100 rounded-full"><Building className="h-6 w-6 text-blue-600" /></div><h3 className="font-medium">Manage Lenders</h3><p className="text-sm text-gray-500">View/update lenders</p></div></Link></Card>
-        <Card className="hover:bg-gray-50 transition-colors cursor-pointer"><Link to="/app/assistant" className="block p-6"><div className="flex flex-col items-center text-center space-y-2"><div className="p-2 bg-brand-100 rounded-full"><MessageSquare className="h-6 w-6 text-brand-600" /></div><h3 className="font-medium">AI Assistant</h3><p className="text-sm text-gray-500">Ask questions</p></div></Link></Card>
-        <Card className="hover:bg-gray-50 transition-colors cursor-pointer"><Link to="/app/account" className="block p-6"><div className="flex flex-col items-center text-center space-y-2"><div className="p-2 bg-emerald-100 rounded-full"><Users className="h-6 w-6 text-emerald-600" /></div><h3 className="font-medium">Account Settings</h3><p className="text-sm text-gray-500">Manage profile</p></div></Link></Card>
+        <Card className="hover:bg-secondary transition-colors cursor-pointer"><Link to="/app/clients" className="block p-6"><div className="flex flex-col items-center text-center space-y-2"><div className="p-2 bg-purple-100 rounded-full"><UserPlus className="h-6 w-6 text-purple-600" /></div><h3 className="font-medium">Add New Client</h3><p className="text-sm text-muted-foreground">Create a client record</p></div></Link></Card>
+        <Card className="hover:bg-secondary transition-colors cursor-pointer"><Link to="/app/lenders" className="block p-6"><div className="flex flex-col items-center text-center space-y-2"><div className="p-2 bg-blue-100 rounded-full"><Building className="h-6 w-6 text-blue-600" /></div><h3 className="font-medium">Manage Lenders</h3><p className="text-sm text-muted-foreground">View/update lenders</p></div></Link></Card>
+        <Card className="hover:bg-secondary transition-colors cursor-pointer"><Link to="/app/assistant" className="block p-6"><div className="flex flex-col items-center text-center space-y-2"><div className="p-2 bg-primary/10 rounded-full"><MessageSquare className="h-6 w-6 text-primary" /></div><h3 className="font-medium">AI Assistant</h3><p className="text-sm text-muted-foreground">Ask questions</p></div></Link></Card>
+        <Card className="hover:bg-secondary transition-colors cursor-pointer"><Link to="/app/account" className="block p-6"><div className="flex flex-col items-center text-center space-y-2"><div className="p-2 bg-emerald-100 rounded-full"><Users className="h-6 w-6 text-emerald-600" /></div><h3 className="font-medium">Account Settings</h3><p className="text-sm text-muted-foreground">Manage profile</p></div></Link></Card>
       </div>
     </div>
   );

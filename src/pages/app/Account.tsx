@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Bell, 
   CreditCard, 
@@ -38,6 +37,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/components/ui/use-toast";
 import { useSearchParams } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Simulated user data
 const userData = {
@@ -144,7 +144,8 @@ const Account = () => {
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') || 'profile';
   
-  const [user, setUser] = useState(userData);
+  const { profile, updateProfile, isLoading: authLoading } = useAuth();
+  const [user, setUser] = useState(profile);
   const [loading, setLoading] = useState(false);
   const [passwordFields, setPasswordFields] = useState({
     currentPassword: "",
@@ -154,18 +155,35 @@ const Account = () => {
   
   const { toast } = useToast();
 
+  // Sync local state with profile from context
+  useEffect(() => {
+    setUser(profile);
+  }, [profile]);
+
   // Handle form submission for profile update
-  const handleProfileUpdate = () => {
+  const handleProfileUpdate = async () => {
+    if (!user) return;
     setLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await updateProfile({
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
+        company_name: user.company_name || '',
+        avatar_url: user.avatar_url || '',
+      });
       toast({
         title: "Profile updated",
         description: "Your profile information has been saved successfully.",
       });
-    }, 1000);
+    } catch (err: any) {
+      toast({
+        title: "Update failed",
+        description: err.message || "Could not update profile.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Handle notification preference update
@@ -238,9 +256,9 @@ const Account = () => {
   };
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Account Settings</h1>
+        {/* <h1 className="text-2xl font-bold tracking-tight">Account Settings</h1> Removed main page title as it is now in header */}
         <p className="text-muted-foreground">
           Manage your account settings and preferences
         </p>
@@ -291,8 +309,8 @@ const Account = () => {
               <div className="flex flex-col sm:flex-row items-start gap-6">
                 <div className="flex flex-col items-center gap-2">
                   <Avatar className="h-24 w-24">
-                    <AvatarImage src={user.avatar} />
-                    <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                    <AvatarImage src={user?.avatar_url || ''} />
+                    <AvatarFallback>{(user?.first_name?.charAt(0) || user?.last_name?.charAt(0) || '?')}</AvatarFallback>
                   </Avatar>
                   <Button variant="outline" size="sm">
                     Change Avatar
@@ -302,31 +320,33 @@ const Account = () => {
                 <div className="grid flex-1 gap-4 w-full">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="name">Full Name</Label>
+                      <Label htmlFor="first_name">First Name</Label>
                       <Input
-                        id="name"
-                        value={user.name}
-                        onChange={(e) => setUser({ ...user, name: e.target.value })}
+                        id="first_name"
+                        value={user.first_name || ''}
+                        onChange={e => setUser(u => u ? { ...u, first_name: e.target.value } : u)}
+                        disabled={loading || authLoading}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
+                      <Label htmlFor="last_name">Last Name</Label>
                       <Input
-                        id="email"
-                        type="email"
-                        value={user.email}
-                        onChange={(e) => setUser({ ...user, email: e.target.value })}
+                        id="last_name"
+                        value={user.last_name || ''}
+                        onChange={e => setUser(u => u ? { ...u, last_name: e.target.value } : u)}
+                        disabled={loading || authLoading}
                       />
                     </div>
                   </div>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="company">Company</Label>
+                      <Label htmlFor="company_name">Company</Label>
                       <Input
-                        id="company"
-                        value={user.company}
-                        onChange={(e) => setUser({ ...user, company: e.target.value })}
+                        id="company_name"
+                        value={user.company_name || ''}
+                        onChange={e => setUser(u => u ? { ...u, company_name: e.target.value } : u)}
+                        disabled={loading || authLoading}
                       />
                     </div>
                     <div className="space-y-2">
@@ -362,8 +382,8 @@ const Account = () => {
             </CardContent>
             <CardFooter className="flex justify-between">
               <Button variant="outline">Cancel</Button>
-              <Button onClick={handleProfileUpdate} disabled={loading}>
-                {loading ? "Saving..." : "Save Changes"}
+              <Button onClick={handleProfileUpdate} disabled={loading || authLoading}>
+                {(loading || authLoading) ? "Saving..." : "Save Changes"}
               </Button>
             </CardFooter>
           </Card>
@@ -376,30 +396,30 @@ const Account = () => {
               <CardHeader className="pb-3">
                 <CardTitle>Current Plan</CardTitle>
                 <CardDescription>
-                  You are currently on the {user.subscription.plan} plan
+                  You are currently on the {user && user.subscription && user.subscription.plan ? user.subscription.plan : 'Free'} plan
                 </CardDescription>
               </CardHeader>
               <CardContent className="pb-3">
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="font-semibold text-xl">{user.subscription.plan}</h3>
-                      <p className="text-sm text-muted-foreground">{user.subscription.price}</p>
+                      <h3 className="font-semibold text-xl">{user && user.subscription && user.subscription.plan ? user.subscription.plan : 'Free'}</h3>
+                      <p className="text-sm text-muted-foreground">{user && user.subscription && user.subscription.price ? user.subscription.price : ''}</p>
                     </div>
-                    <Badge>Active</Badge>
+                    <Badge>{user && user.subscription && user.subscription.status ? user.subscription.status : ''}</Badge>
                   </div>
                   
                   <div className="space-y-2">
                     <h4 className="text-sm font-medium">Includes:</h4>
                     <ul className="space-y-2">
-                      {user.subscription.features.map((feature, index) => (
+                      {user && user.subscription && user.subscription.features ? user.subscription.features.map((feature, index) => (
                         <li key={index} className="flex items-center text-sm">
                           <div className="mr-2 h-4 w-4 rounded-full bg-primary/20 flex items-center justify-center">
                             <div className="h-2 w-2 rounded-full bg-primary"></div>
                           </div>
                           {feature}
                         </li>
-                      ))}
+                      )) : []}
                     </ul>
                   </div>
                   
@@ -408,39 +428,45 @@ const Account = () => {
                   <div className="space-y-2">
                     <h4 className="text-sm font-medium">Current Usage:</h4>
                     <div className="space-y-4">
-                      <div className="space-y-1">
+                      {user && user.subscription && user.subscription.usage && user.subscription.usage.aiQueries ? (
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span>AI Queries</span>
+                            <span>
+                              {user.subscription.usage.aiQueries.used} / {user.subscription.usage.aiQueries.total}
+                            </span>
+                          </div>
+                          <Progress value={user.subscription.usage.aiQueries.percentage} />
+                        </div>
+                      ) : null}
+                      
+                      {user && user.subscription && user.subscription.usage && user.subscription.usage.storage ? (
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span>Storage</span>
+                            <span>
+                              {user.subscription.usage.storage.used} GB / {user.subscription.usage.storage.total} GB
+                            </span>
+                          </div>
+                          <Progress value={user.subscription.usage.storage.percentage} />
+                        </div>
+                      ) : null}
+                      
+                      {user && user.subscription && user.subscription.usage && user.subscription.usage.lenders ? (
                         <div className="flex items-center justify-between text-sm">
-                          <span>AI Queries</span>
+                          <span>Lenders</span>
                           <span>
-                            {user.subscription.usage.aiQueries.used} / {user.subscription.usage.aiQueries.total}
+                            {user.subscription.usage.lenders.used} / {user.subscription.usage.lenders.total}
                           </span>
                         </div>
-                        <Progress value={user.subscription.usage.aiQueries.percentage} />
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-sm">
-                          <span>Storage</span>
-                          <span>
-                            {user.subscription.usage.storage.used} GB / {user.subscription.usage.storage.total} GB
-                          </span>
-                        </div>
-                        <Progress value={user.subscription.usage.storage.percentage} />
-                      </div>
-                      
-                      <div className="flex items-center justify-between text-sm">
-                        <span>Lenders</span>
-                        <span>
-                          {user.subscription.usage.lenders.used} / {user.subscription.usage.lenders.total}
-                        </span>
-                      </div>
+                      ) : null}
                     </div>
                   </div>
                 </div>
               </CardContent>
               <CardFooter className="flex justify-between border-t pt-6">
                 <div className="text-sm text-muted-foreground">
-                  Renews on {user.subscription.renewalDate}
+                  Renews on {user && user.subscription && user.subscription.renewalDate ? user.subscription.renewalDate : ''}
                 </div>
                 <div className="flex space-x-2">
                   <Button variant="outline" size="sm">Cancel Plan</Button>
@@ -463,8 +489,8 @@ const Account = () => {
                       <CreditCard className="h-5 w-5" />
                     </div>
                     <div>
-                      <div className="font-medium">{user.billing.paymentMethod.brand} •••• {user.billing.paymentMethod.last4}</div>
-                      <div className="text-sm text-muted-foreground">Expires {user.billing.paymentMethod.expiry}</div>
+                      <div className="font-medium">{user && user.billing && user.billing.paymentMethod && user.billing.paymentMethod.brand ? user.billing.paymentMethod.brand : ''} •••• {user && user.billing && user.billing.paymentMethod && user.billing.paymentMethod.last4 ? user.billing.paymentMethod.last4 : ''}</div>
+                      <div className="text-sm text-muted-foreground">Expires {user && user.billing && user.billing.paymentMethod && user.billing.paymentMethod.expiry ? user.billing.paymentMethod.expiry : ''}</div>
                     </div>
                   </div>
                 </div>
@@ -480,7 +506,7 @@ const Account = () => {
                 <div className="space-y-3">
                   <h4 className="text-sm font-medium">Recent Invoices</h4>
                   <div className="space-y-2">
-                    {user.billing.invoices.map((invoice) => (
+                    {user && user.billing && user.billing.invoices ? user.billing.invoices.map((invoice) => (
                       <div key={invoice.id} className="flex items-center justify-between text-sm">
                         <div className="flex items-center space-x-3">
                           <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center">
@@ -498,7 +524,7 @@ const Account = () => {
                           </Button>
                         </div>
                       </div>
-                    ))}
+                    )) : []}
                   </div>
                 </div>
               </CardContent>
@@ -612,7 +638,7 @@ const Account = () => {
                 </Label>
                 <Switch
                   id="email-updates"
-                  checked={user.notifications.email.updates}
+                  checked={user && user.notifications && user.notifications.email && user.notifications.email.updates}
                   onCheckedChange={(checked) => 
                     updateNotificationPreference('email', 'updates', checked)
                   }
@@ -628,7 +654,7 @@ const Account = () => {
                 </Label>
                 <Switch
                   id="email-marketing"
-                  checked={user.notifications.email.marketing}
+                  checked={user && user.notifications && user.notifications.email && user.notifications.email.marketing}
                   onCheckedChange={(checked) => 
                     updateNotificationPreference('email', 'marketing', checked)
                   }
@@ -644,7 +670,7 @@ const Account = () => {
                 </Label>
                 <Switch
                   id="email-rates"
-                  checked={user.notifications.email.newRates}
+                  checked={user && user.notifications && user.notifications.email && user.notifications.email.newRates}
                   onCheckedChange={(checked) => 
                     updateNotificationPreference('email', 'newRates', checked)
                   }
@@ -660,7 +686,7 @@ const Account = () => {
                 </Label>
                 <Switch
                   id="email-documents"
-                  checked={user.notifications.email.newDocuments}
+                  checked={user && user.notifications && user.notifications.email && user.notifications.email.newDocuments}
                   onCheckedChange={(checked) => 
                     updateNotificationPreference('email', 'newDocuments', checked)
                   }
@@ -686,7 +712,7 @@ const Account = () => {
                 </Label>
                 <Switch
                   id="push-updates"
-                  checked={user.notifications.push.updates}
+                  checked={user && user.notifications && user.notifications.push && user.notifications.push.updates}
                   onCheckedChange={(checked) => 
                     updateNotificationPreference('push', 'updates', checked)
                   }
@@ -702,7 +728,7 @@ const Account = () => {
                 </Label>
                 <Switch
                   id="push-marketing"
-                  checked={user.notifications.push.marketing}
+                  checked={user && user.notifications && user.notifications.push && user.notifications.push.marketing}
                   onCheckedChange={(checked) => 
                     updateNotificationPreference('push', 'marketing', checked)
                   }
@@ -718,7 +744,7 @@ const Account = () => {
                 </Label>
                 <Switch
                   id="push-rates"
-                  checked={user.notifications.push.newRates}
+                  checked={user && user.notifications && user.notifications.push && user.notifications.push.newRates}
                   onCheckedChange={(checked) => 
                     updateNotificationPreference('push', 'newRates', checked)
                   }
@@ -734,7 +760,7 @@ const Account = () => {
                 </Label>
                 <Switch
                   id="push-documents"
-                  checked={user.notifications.push.newDocuments}
+                  checked={user && user.notifications && user.notifications.push && user.notifications.push.newDocuments}
                   onCheckedChange={(checked) => 
                     updateNotificationPreference('push', 'newDocuments', checked)
                   }
@@ -784,7 +810,7 @@ const Account = () => {
             </CardContent>
             <CardFooter className="flex justify-between">
               <div className="text-sm text-muted-foreground">
-                Last changed: {user.security.lastPasswordChange}
+                Last changed: {user && user.security && user.security.lastPasswordChange ? user.security.lastPasswordChange : ''}
               </div>
               <Button onClick={handlePasswordUpdate} disabled={loading}>
                 {loading ? "Updating..." : "Update Password"}
@@ -808,12 +834,12 @@ const Account = () => {
                   </div>
                 </div>
                 <Switch
-                  checked={user.security.twoFactorEnabled}
+                  checked={user && user.security && user.security.twoFactorEnabled}
                   onCheckedChange={toggleTwoFactor}
                 />
               </div>
               
-              {user.security.twoFactorEnabled && (
+              {user && user.security && user.security.twoFactorEnabled && (
                 <div className="rounded-md border p-4 mt-4">
                   <div className="flex items-center space-x-4">
                     <div className="rounded-full bg-green-100 p-2">
@@ -840,7 +866,7 @@ const Account = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {user.security.loginHistory.map((login, index) => (
+                {user && user.security && user.security.loginHistory ? user.security.loginHistory.map((login, index) => (
                   <div key={index} className="flex items-center space-x-4">
                     <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
                       <Lock className="h-5 w-5" />
@@ -857,7 +883,7 @@ const Account = () => {
                       <Badge variant="outline" className="ml-auto">Current</Badge>
                     )}
                   </div>
-                ))}
+                )) : []}
               </div>
             </CardContent>
             <CardFooter>

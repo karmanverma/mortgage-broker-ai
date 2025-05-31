@@ -81,8 +81,8 @@ export function ConversationSidebar({
 
 
   return (
-    // MODIFIED: Added bg-white and removed dark mode classes
-    <div className={cn("h-full flex flex-col border-r bg-white", className)}>
+    // MODIFIED: Added bg-background and removed dark mode classes
+    <div className={cn("h-full flex flex-col border-r bg-background", className)}>
       {/* MODIFIED: Removed heading, updated button style and container */}
       <div className="p-4 border-b">
         <Button variant="outline" className="w-full" onClick={handleStartNewConversation} title="Start New Conversation">
@@ -92,7 +92,7 @@ export function ConversationSidebar({
       </div>
       <ScrollArea className="flex-1">
         <div className="p-2 space-y-1">
-          {loading && <p className="p-2 text-sm text-gray-500">Loading...</p>}
+          {loading && <p className="p-2 text-sm text-muted-foreground">Loading...</p>}
           {error && (
              <div className="p-2 text-sm text-red-600 flex items-center gap-2">
                 <AlertCircle className="h-4 w-4" />
@@ -155,7 +155,7 @@ export function ConversationSidebar({
              );
           })}
            {!loading && !error && conversations.length === 0 && (
-              <p className="p-2 text-sm text-gray-500 text-center">No conversations yet.</p>
+              <p className="p-2 text-sm text-muted-foreground text-center">No conversations yet.</p>
            )}
         </div>
       </ScrollArea>

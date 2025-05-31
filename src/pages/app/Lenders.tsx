@@ -1,16 +1,16 @@
 import { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useLenders } from "@/hooks/useLenders";
+import { useLenders, Lender } from "@/hooks/useLenders";
 // import { useLenderDocuments } from "@/hooks/useLenderDocuments"; // Document hook now used within ManageDocumentsDialog
 
 import { LenderSearch } from "@/components/lenders/LenderSearch";
 import { LendersList } from "@/components/lenders/LendersList";
 import { AddLenderForm } from "@/components/lenders/AddLenderForm";
+import { EditLenderForm } from "@/components/lenders/EditLenderForm";
 import ManageDocumentsDialog from "@/components/lenders/ManageDocumentsDialog"; // Corrected: Default import
-import { Tables } from "@/integrations/supabase/types";
 
-type Lender = Tables<'lenders'>;
+// Using the exported Lender type from useLenders
 
 const lenderTypes = ["Bank", "Broker", "Direct Lender", "Credit Union", "Correspondent", "Wholesale"];
 
@@ -23,8 +23,9 @@ const Lenders = () => {
   const [selectedStatus, setSelectedStatus] = useState<string>("");
   const [selectedLenders, setSelectedLenders] = useState<string[]>([]);
   const [isAddLenderOpen, setIsAddLenderOpen] = useState(false);
+  const [isEditLenderOpen, setIsEditLenderOpen] = useState(false);
   const [isManageDocsOpen, setIsManageDocsOpen] = useState(false); // State for new dialog
-  const [activeLenderForDocs, setActiveLenderForDocs] = useState<Lender | null>(null); // State for lender context
+  const [activeLender, setActiveLender] = useState<Lender | null>(null); // State for active lender context
 
   const { lenders, isLoading: lendersLoading, fetchLenders } = useLenders();
 
@@ -69,49 +70,61 @@ const Lenders = () => {
   // Function to open the new Manage Documents dialog
   const handleOpenManageDocuments = (lender: Lender) => {
     console.log(`Lenders.tsx: Opening manage documents for lender ID: ${lender.id}`);
-    setActiveLenderForDocs(lender);
+    setActiveLender(lender);
     setIsManageDocsOpen(true);
+  };
+
+  // Function to open the Edit Lender dialog
+  const handleOpenEditLender = (lender: Lender) => {
+    console.log(`Lenders.tsx: Opening edit for lender ID: ${lender.id}`);
+    setActiveLender(lender);
+    setIsEditLenderOpen(true);
   };
 
   const isLoading = lendersLoading;
 
   return (
     <div className="p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
-        <h1 className="text-2xl font-bold tracking-tight">Lenders</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 mb-6">
+        {/* <h1 className="text-2xl font-bold tracking-tight">Lenders</h1> Removed main page title as it is now in header */}
         <Button onClick={() => setIsAddLenderOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Add New Lender
         </Button>
       </div>
 
-      <LenderSearch
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        selectedType={selectedType}
-        setSelectedType={setSelectedType}
-        selectedStatus={selectedStatus}
-        setSelectedStatus={setSelectedStatus}
-        resetFilters={resetFilters}
-        lenderTypes={lenderTypes}
-        statusOptions={statusOptions}
-      />
+      <div className="space-y-4">
+        <LenderSearch
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          selectedType={selectedType}
+          setSelectedType={setSelectedType}
+          selectedStatus={selectedStatus}
+          setSelectedStatus={setSelectedStatus}
+          resetFilters={resetFilters}
+          lenderTypes={lenderTypes}
+          statusOptions={statusOptions}
+          view={view}
+          setView={setView}
+        />
 
-      <LendersList
-        filteredLenders={filteredLenders}
-        view={view}
-        setView={setView}
-        selectedLenders={selectedLenders}
-        toggleLenderSelection={toggleLenderSelection}
-        selectAll={selectAll}
-        handleOpenManageDocuments={handleOpenManageDocuments} // Pass down the new handler
-        setIsAddLenderOpen={setIsAddLenderOpen}
-        resetFilters={resetFilters}
-        searchTerm={searchTerm}
-        selectedType={selectedType}
-        selectedStatus={selectedStatus}
-        isLoading={isLoading}
-      />
+        <LendersList
+          filteredLenders={filteredLenders}
+          view={view}
+          setView={setView}
+          selectedLenders={selectedLenders}
+          toggleLenderSelection={toggleLenderSelection}
+          selectAll={selectAll}
+          handleOpenManageDocuments={handleOpenManageDocuments}
+          handleOpenEditLender={handleOpenEditLender}
+          setIsAddLenderOpen={setIsAddLenderOpen}
+          resetFilters={resetFilters}
+          searchTerm={searchTerm}
+          selectedType={selectedType}
+          selectedStatus={selectedStatus}
+          isLoading={isLoading}
+        />
+      </div>
 
       <AddLenderForm
         isOpen={isAddLenderOpen}
@@ -124,7 +137,16 @@ const Lenders = () => {
       <ManageDocumentsDialog
         isOpen={isManageDocsOpen}
         onClose={() => setIsManageDocsOpen(false)}
-        lender={activeLenderForDocs}
+        lender={activeLender}
+      />
+
+      {/* Render the new EditLenderForm component */}
+      <EditLenderForm
+        isOpen={isEditLenderOpen}
+        onClose={() => setIsEditLenderOpen(false)}
+        lenderTypes={lenderTypes}
+        statusOptions={statusOptions}
+        lender={activeLender}
       />
     </div>
   );

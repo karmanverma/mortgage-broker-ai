@@ -16,16 +16,18 @@ import {
   Loader2,
   AlertCircle
 } from 'lucide-react';
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 
+import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from '@/components/ui/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 // Import generated types
 import { Database, Tables } from '@/integrations/supabase/types';
@@ -84,15 +86,38 @@ const getStatusVariant = (status: string | null | undefined): BadgeVariant => {
   }
 };
 
-const DetailItem = ({ icon: Icon, label, value }: { icon: React.ElementType, label: string, value: React.ReactNode }) => (
-  <div className="flex items-start space-x-3">
-    <Icon className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-    <div className="flex-1">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className="text-sm font-medium break-words">{value || 'N/A'}</p>
+const DetailItem = ({ icon: Icon, label, value }: { icon: React.ElementType, label: string, value: React.ReactNode }) => {
+  const { toast } = useToast();
+  
+  const handleCopy = () => {
+    if (typeof value === 'string') {
+      navigator.clipboard.writeText(value);
+      toast({
+        title: 'Copied to clipboard',
+        description: `${label} copied`,
+      });
+    }
+  };
+
+  // Check if the value is a phone number or email
+  const isClickable = typeof value === 'string' && (label.toLowerCase().includes('email') || label.toLowerCase().includes('phone'));
+
+  return (
+    <div className="flex items-start space-x-3">
+      <Icon className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-muted-foreground">{label}</p>
+        <div 
+          className={`text-sm font-medium ${isClickable ? 'cursor-pointer hover:underline' : ''} truncate`}
+          onClick={isClickable ? handleCopy : undefined}
+          title={isClickable ? `Click to copy ${value}` : undefined}
+        >
+          {value || 'N/A'}
+        </div>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 // Define a type for the tab items to ensure proper typing
 interface TabItem {
@@ -117,6 +142,13 @@ const ClientDetailPage = () => {
   const [activities, setActivities] = useState<ClientActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [editingTab, setEditingTab] = useState<string|null>(null);
+  const [editedPersonal, setEditedPersonal] = useState<PersonalInfoTabData|null>(null);
+  const [editedFinancial, setEditedFinancial] = useState<FinancialDetailsTabData|null>(null);
+  const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false);
+  const [pendingTab, setPendingTab] = useState<string|null>(null);
+  const [activeTab, setActiveTab] = useState('personal');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -198,10 +230,89 @@ const ClientDetailPage = () => {
   // Map DB client to our frontend client format when needed
   const client = dbClient ? mapDbClientToClient(dbClient) : null;
 
+  // Helper: check if there are unsaved changes
+  const hasUnsavedChanges = !!(
+    (editingTab === 'personal' && editedPersonal && JSON.stringify(editedPersonal) !== JSON.stringify(dbClient)) ||
+    (editingTab === 'financial' && editedFinancial && JSON.stringify(editedFinancial) !== JSON.stringify(dbClient))
+  );
+
+  // Tab change handler
+  const handleTabChange = (tab: string) => {
+    if (editingTab && hasUnsavedChanges) {
+      setPendingTab(tab);
+      setUnsavedDialogOpen(true);
+    } else {
+      setEditingTab(null);
+      setPendingTab(null);
+      setEditedPersonal(null);
+      setEditedFinancial(null);
+      setActiveTab(tab);
+    }
+  };
+
+  // Save handler
+  const handleSave = async () => {
+    let result, error;
+    if (editingTab === 'personal' && editedPersonal) {
+      // Save personal info changes to backend
+      const updateObj = { ...editedPersonal };
+      delete updateObj.id; // id is used as filter, not updated
+      ({ data: result, error } = await supabase
+        .from('clients')
+        .update(updateObj)
+        .eq('id', editedPersonal.id)
+        .select()
+      );
+      if (error) {
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+        return;
+      }
+      setDbClient(result?.[0] || editedPersonal);
+      setEditingTab(null);
+      setEditedPersonal(null);
+      toast({ title: 'Saved', description: 'Personal information updated.' });
+    } else if (editingTab === 'financial' && editedFinancial) {
+      // Save financial info changes to backend
+      const updateObj = { ...editedFinancial };
+      delete updateObj.id;
+      ({ data: result, error } = await supabase
+        .from('clients')
+        .update(updateObj)
+        .eq('id', editedFinancial.id)
+        .select()
+      );
+      if (error) {
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+        return;
+      }
+      setDbClient(result?.[0] || editedFinancial);
+      setEditingTab(null);
+      setEditedFinancial(null);
+      toast({ title: 'Saved', description: 'Financial details updated.' });
+    }
+    setUnsavedDialogOpen(false);
+    if (pendingTab) {
+      setActiveTab(pendingTab);
+      setPendingTab(null);
+    }
+  };
+
+  // Discard handler
+  const handleDiscard = () => {
+    setEditingTab(null);
+    setEditedPersonal(null);
+    setEditedFinancial(null);
+    setUnsavedDialogOpen(false);
+    if (pendingTab) {
+      setActiveTab(pendingTab);
+      setPendingTab(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-[calc(100vh-200px)]">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <LoadingSpinner size="lg" />
       </div>
     );
   }
@@ -323,7 +434,7 @@ const ClientDetailPage = () => {
 
         {/* Main Content Area with Tabs */} 
         <main className="flex-1 min-w-0">
-           <Tabs defaultValue="personal" className="w-full">
+           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
              <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 mb-4">
                {navItems.map((item) => (
                  <TabsTrigger key={item.id} value={item.id} className="flex-1">
@@ -335,13 +446,43 @@ const ClientDetailPage = () => {
 
              {navItems.map((item) => (
                <TabsContent key={item.id} value={item.id}>
-                 {/* Render the specific tab component, passing the relevant data */}
-                 <item.component data={item.data} />
+                 {/* Only pass editing props to editable tabs */}
+                 {item.id === 'personal' ? (
+                   <PersonalInfoTab
+                     data={editingTab === 'personal' && editedPersonal ? editedPersonal : dbClient}
+                     isEditing={editingTab === 'personal'}
+                     onEdit={() => { setEditingTab('personal'); setEditedPersonal(dbClient); }}
+                     onChange={setEditedPersonal}
+                     onSave={handleSave}
+                   />
+                 ) : item.id === 'financial' ? (
+                   <FinancialDetailsTab
+                     data={editingTab === 'financial' && editedFinancial ? editedFinancial : dbClient}
+                     isEditing={editingTab === 'financial'}
+                     onEdit={() => { setEditingTab('financial'); setEditedFinancial(dbClient); }}
+                     onChange={setEditedFinancial}
+                     onSave={handleSave}
+                   />
+                 ) : (
+                   <item.component data={item.data} />
+                 )}
                </TabsContent>
              ))}
            </Tabs>
         </main>
       </div>
+      <Dialog open={unsavedDialogOpen} onOpenChange={setUnsavedDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Unsaved Changes</DialogTitle>
+          </DialogHeader>
+          <p>You have unsaved changes. Would you like to save or discard them?</p>
+          <DialogFooter>
+            <Button onClick={handleDiscard} variant="outline">Discard</Button>
+            <Button onClick={handleSave}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
