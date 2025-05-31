@@ -88,7 +88,13 @@ const Sidebar = ({ isOpen, toggleSidebar, onClose, isMobile }: SidebarProps) => 
 
   // Render Library menu item with last 3 conversations
   const renderLibraryMenu = () => {
-    const lastThree = (conversations || []).slice(0, 3);
+    // Sort conversations by updated_at or created_at descending
+    const sorted = (conversations || []).slice().sort((a, b) => {
+      const aTime = new Date(a.updated_at || a.created_at || 0).getTime();
+      const bTime = new Date(b.updated_at || b.created_at || 0).getTime();
+      return bTime - aTime;
+    });
+    const lastThree = sorted.slice(0, 3);
     return (
       <div>
         <Tooltip>

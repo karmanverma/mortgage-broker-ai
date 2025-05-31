@@ -150,38 +150,26 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
         );
     }, [lendersWithDocuments, lenderTypeFilter]);
 
-    // Handle individual lender checkbox changes (call prop function)
-    const handleCheckboxChange = (lenderId: string, checked: boolean | string) => {
-         const isChecked = !!checked; // Ensure boolean value
-         if (isChecked) {
-             // Add the lender ID if it's not already included
-             if (!selectedLenderIds.includes(lenderId)) {
-                 onSelectedLendersChange([...selectedLenderIds, lenderId]);
-             }
-         } else {
-             // Remove the lender ID
-             onSelectedLendersChange(selectedLenderIds.filter(id => id !== lenderId));
-         }
-    };
-
-
-    // Handle "Select All" checkbox changes (call prop function)
-    const handleSelectAllVisible = (checked: boolean | string) => {
-        const visibleLenderIds = filteredLenders.map(l => l.id);
-        if (checked) {
-            // Select only the visible ones, preserving any already selected hidden ones
-            const currentlySelectedHidden = selectedLenderIds.filter(id => !visibleLenderIds.includes(id));
-            onSelectedLendersChange([...currentlySelectedHidden, ...visibleLenderIds]);
+    // Handle lender selection change (radio button)
+    const handleLenderSelect = (lenderId: string | 'all') => {
+        if (lenderId === 'all') {
+            // Select all lenders
+            const allLenderIds = filteredLenders.map(l => l.id);
+            onSelectedLendersChange(allLenderIds);
         } else {
-            // Deselect only the visible ones, preserving any already selected hidden ones
-            onSelectedLendersChange(selectedLenderIds.filter(id => !visibleLenderIds.includes(id)));
+            // Select specific lender
+            onSelectedLendersChange([lenderId]);
         }
     };
 
-    // Determine if "Select All" should be checked (use prop)
-    const allVisibleSelected = useMemo(() => {
+    // Check if a specific lender is selected
+    const isLenderSelected = (lenderId: string) => {
+        return selectedLenderIds.length === 1 && selectedLenderIds[0] === lenderId;
+    };
+
+    // Check if "All" is selected (all visible lenders are selected)
+    const isAllSelected = useMemo(() => {
         if (filteredLenders.length === 0) return false;
-        // Check if *every* lender in the filtered list is included in the selectedLenderIds prop
         return filteredLenders.every(l => selectedLenderIds.includes(l.id));
     }, [selectedLenderIds, filteredLenders]);
 
@@ -276,38 +264,48 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
                                 ))
                             ) : filteredLenders.length > 0 ? (
                                 <>
-                                    <div className="flex items-center space-x-2 pb-2 border-b mb-2">
-                                        <Checkbox
-                                            id="select-all-lenders"
-                                            checked={allVisibleSelected} // Use memoized value based on prop
-                                            onCheckedChange={handleSelectAllVisible} // Calls prop callback
-                                            aria-label="Select all visible lenders"
-                                            disabled={filteredLenders.length === 0}
-                                        />
-                                        <Label
-                                            htmlFor="select-all-lenders"
-                                            className={cn("text-sm font-medium leading-none cursor-pointer", filteredLenders.length === 0 && "text-muted-foreground cursor-not-allowed")}
-                                        >
-                                            Select All ({filteredLenders.length})
-                                        </Label>
-                                    </div>
-
-                                    {filteredLenders.map((lender) => (
-                                        <div key={lender.id} className="flex items-center space-x-2">
-                                            <Checkbox
-                                                id={`lender-${lender.id}`}
-                                                checked={selectedLenderIds.includes(lender.id)} // Use prop
-                                                onCheckedChange={(checked) => handleCheckboxChange(lender.id, checked)} // Calls prop callback
+                                    <div className="space-y-3">
+                                        <div className="flex items-center space-x-2">
+                                            <input
+                                                type="radio"
+                                                id="select-all-lenders"
+                                                name="lender-selection"
+                                                checked={isAllSelected}
+                                                onChange={() => handleLenderSelect('all')}
+                                                className="h-4 w-4 text-primary focus:ring-primary border-gray-300"
+                                                disabled={filteredLenders.length === 0}
                                             />
                                             <Label
-                                                htmlFor={`lender-${lender.id}`}
-                                                className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                                htmlFor="select-all-lenders"
+                                                className={cn("text-sm font-medium leading-none cursor-pointer", filteredLenders.length === 0 && "text-muted-foreground cursor-not-allowed")}
                                             >
-                                                {lender.name}
-                                                {lender.type && <span className="text-xs text-muted-foreground ml-1">({lender.type})</span>}
+                                                All Lenders ({filteredLenders.length})
                                             </Label>
                                         </div>
-                                    ))}
+
+                                        <div className="border-t border-gray-200 my-2"></div>
+                                        <p className="text-sm font-medium text-muted-foreground mb-2">Or select a specific lender:</p>
+
+                                        {filteredLenders.map((lender) => (
+                                            <div key={lender.id} className="flex items-center space-x-2">
+                                                <input
+                                                    type="radio"
+                                                    id={`lender-${lender.id}`}
+                                                    name="lender-selection"
+                                                    checked={isLenderSelected(lender.id)}
+                                                    onChange={() => handleLenderSelect(lender.id)}
+                                                    className="h-4 w-4 text-primary focus:ring-primary border-gray-300"
+                                                />
+                                                <Label
+                                                    htmlFor={`lender-${lender.id}`}
+                                                    className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                                >
+                                                    {lender.name}
+                                                    {lender.type && <span className="text-xs text-muted-foreground ml-1">({lender.type})</span>}
+                                                </Label>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </>
                             ) : (
                                 <div className="text-sm text-muted-foreground text-center py-2">
@@ -325,10 +323,9 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
                  <p className="text-xs text-muted-foreground mb-2 text-center">
                     {selectedClientId ? '1 client,' : 'No client,'}
                     {' '}
-                    {/* Indicate 'All visible' if the filter is active and all shown are selected */}
-                    {allVisibleSelected && filteredLenders.length > 0 ? (lenderTypeFilter !== 'All' && filteredLenders.length === lendersWithDocuments.length ? 'All visible' : (allVisibleSelected && filteredLenders.length == lendersWithDocuments.length ? 'All' : selectedLenderIds.length)) : selectedLenderIds.length}
+                    {isAllSelected ? 'All' : selectedLenderIds.length}
                     {' '}
-                    lender(s) selected
+                    {selectedLenderIds.length === 1 ? 'lender' : 'lenders'} selected
                 </p>
                 <Popover>
                     <PopoverTrigger asChild>

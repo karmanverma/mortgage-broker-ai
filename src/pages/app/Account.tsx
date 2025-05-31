@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+
+
 import { 
   Bell, 
   CreditCard, 
@@ -25,6 +27,8 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
+
 import { 
   Select, 
   SelectContent, 
@@ -141,6 +145,9 @@ const userData = {
 };
 
 const Account = () => {
+  // Avatar dialog state and hook
+  const [avatarDialogOpen, setAvatarDialogOpen] = useState(false);
+  const { uploading, error: avatarError, preview, onFileChange, uploadAvatar, reset } = useAvatarUpload();
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') || 'profile';
   
@@ -312,9 +319,50 @@ const Account = () => {
                     <AvatarImage src={user?.avatar_url || ''} />
                     <AvatarFallback>{(user?.first_name?.charAt(0) || user?.last_name?.charAt(0) || '?')}</AvatarFallback>
                   </Avatar>
-                  <Button variant="outline" size="sm">
-                    Change Avatar
-                  </Button>
+                  <Dialog open={avatarDialogOpen} onOpenChange={open => { setAvatarDialogOpen(open); if (!open) reset(); }}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        Change Avatar
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Update Avatar</DialogTitle>
+                        <DialogDescription>Choose a new profile picture (max 2MB, image only).</DialogDescription>
+                      </DialogHeader>
+                      <div className="flex flex-col items-center gap-4">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={onFileChange}
+                          aria-label="Upload avatar"
+                          className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-accent file:text-accent-foreground hover:file:bg-accent/80"
+                        />
+                        {preview && (
+                          <img src={preview} alt="Avatar preview" className="w-24 h-24 rounded-full object-cover border" />
+                        )}
+                        {avatarError && <div className="text-red-500 text-sm">{avatarError}</div>}
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => { setAvatarDialogOpen(false); reset(); }} disabled={uploading}>
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={async () => {
+                            const url = await uploadAvatar();
+                            if (url) {
+                              setAvatarDialogOpen(false);
+                              reset();
+                              toast({ title: "Avatar updated", description: "Your profile picture has been updated." });
+                            }
+                          }}
+                          disabled={uploading}
+                        >
+                          {uploading ? "Uploading..." : "Save"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
                 
                 <div className="grid flex-1 gap-4 w-full">

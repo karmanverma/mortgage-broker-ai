@@ -27,28 +27,157 @@ const formatCurrency = (amount: number | null | undefined) => {
 
 // Helper function to render JSONB data nicely
 const renderJsonData = (data: unknown | null | undefined) => {
-    if (!data) return <p>N/A</p>;
-    try {
-        // Check if it's an object (and not null/array)
-        if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
-            return (
-                <ul className="list-disc list-inside space-y-1 pl-2 text-sm">
-                    {Object.entries(data).map(([key, value]) => (
-                        <li key={key}>
-                            <span className="font-medium capitalize">{key.replace(/_/g, ' ')}:</span> {JSON.stringify(value)}
-                        </li>
-                    ))}
-                </ul>
-            );
-        } else {
-             // If it's a simple value or array, just stringify
-             return <p>{JSON.stringify(data)}</p>;
+    if (!data) return null;
+    let parsed: any;
+    if (typeof data === 'string') {
+        try {
+            parsed = JSON.parse(data);
+        } catch (error: any) {
+            return <pre className="text-xs text-red-500">Invalid JSON</pre>;
         }
-    } catch (error) {
-        console.error("Error rendering JSON data:", error);
-        return <p>Error displaying data</p>;
+    } else {
+        parsed = data;
     }
-};
+    if (typeof parsed === 'object' && parsed !== null) {
+        return (
+            <pre className="text-xs bg-muted/50 rounded p-2 overflow-x-auto whitespace-pre-wrap">
+                {JSON.stringify(parsed, null, 2)}
+            </pre>
+        );
+    }
+    return <span>{String(parsed)}</span>;
+}
+
+// Helper to render assets in a readable format
+function renderAssetsData(data: any) {
+    if (!data) return <p className="text-muted-foreground">No asset information provided.</p>;
+    let parsed = typeof data === 'string' ? (() => { try { return JSON.parse(data); } catch { return null; } })() : data;
+    if (!parsed) return <pre className="text-xs text-red-500">Invalid JSON</pre>;
+    return (
+        <div className="space-y-3">
+            {parsed.savingsAccounts && (
+                <div>
+                    <div className="font-medium mb-1">Savings Accounts</div>
+                    <ul className="pl-4 list-disc text-sm">
+                        {parsed.savingsAccounts.map((a: any, i: number) => (
+                            <li key={i}>{a.institution} ({a.accountType}): <span className="font-mono">${a.balance.toLocaleString()}</span></li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+            {parsed.investmentAccounts && (
+                <div>
+                    <div className="font-medium mb-1">Investment Accounts</div>
+                    <ul className="pl-4 list-disc text-sm">
+                        {parsed.investmentAccounts.map((a: any, i: number) => (
+                            <li key={i}>{a.institution} ({a.accountType}): <span className="font-mono">${a.balance.toLocaleString()}</span></li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+            {parsed.realEstate && (
+                <div>
+                    <div className="font-medium mb-1">Real Estate</div>
+                    <ul className="pl-4 list-disc text-sm">
+                        {parsed.realEstate.map((r: any, i: number) => (
+                            <li key={i}>{r.propertyType} at {r.address} (Value: <span className="font-mono">${r.currentValue.toLocaleString()}</span>, Mortgage: <span className="font-mono">${r.mortgageOwed.toLocaleString()}</span>)</li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+            {parsed.vehicles && (
+                <div>
+                    <div className="font-medium mb-1">Vehicles</div>
+                    <ul className="pl-4 list-disc text-sm">
+                        {parsed.vehicles.map((v: any, i: number) => (
+                            <li key={i}>{v.year} {v.make} {v.model} (Value: <span className="font-mono">${v.currentValue.toLocaleString()}</span>, Loan: <span className="font-mono">${v.loanOwed.toLocaleString()}</span>)</li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+            {parsed.otherAssets && (
+                <div>
+                    <div className="font-medium mb-1">Other Assets</div>
+                    <ul className="pl-4 list-disc text-sm">
+                        {parsed.otherAssets.map((o: any, i: number) => (
+                            <li key={i}>{o.description}: <span className="font-mono">${o.estimatedValue.toLocaleString()}</span></li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+            {parsed.totalAssets && (
+                <div className="font-semibold mt-2">Total Assets: <span className="font-mono">${parsed.totalAssets.toLocaleString()}</span></div>
+            )}
+        </div>
+    );
+}
+
+// Helper to render liabilities in a readable format
+function renderLiabilitiesData(data: any) {
+    if (!data) return <p className="text-muted-foreground">No liability information provided.</p>;
+    let parsed = typeof data === 'string' ? (() => { try { return JSON.parse(data); } catch { return null; } })() : data;
+    if (!parsed) return <pre className="text-xs text-red-500">Invalid JSON</pre>;
+    return (
+        <div className="space-y-3">
+            {parsed.creditCards && (
+                <div>
+                    <div className="font-medium mb-1">Credit Cards</div>
+                    <ul className="pl-4 list-disc text-sm">
+                        {parsed.creditCards.map((c: any, i: number) => (
+                            <li key={i}>{c.issuer} {c.cardType} (Balance: <span className="font-mono">${c.balance.toLocaleString()}</span>, Limit: <span className="font-mono">${c.creditLimit.toLocaleString()}</span>)</li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+            {parsed.studentLoans && (
+                <div>
+                    <div className="font-medium mb-1">Student Loans</div>
+                    <ul className="pl-4 list-disc text-sm">
+                        {parsed.studentLoans.map((s: any, i: number) => (
+                            <li key={i}>{s.lender} (Balance: <span className="font-mono">${s.currentBalance.toLocaleString()}</span>, Rate: {s.interestRate}%)</li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+            {parsed.autoLoans && (
+                <div>
+                    <div className="font-medium mb-1">Auto Loans</div>
+                    <ul className="pl-4 list-disc text-sm">
+                        {parsed.autoLoans.map((a: any, i: number) => (
+                            <li key={i}>{a.lender} (Balance: <span className="font-mono">${a.currentBalance.toLocaleString()}</span>, Rate: {a.interestRate}%)</li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+            {parsed.personalLoans && (
+                <div>
+                    <div className="font-medium mb-1">Personal Loans</div>
+                    <ul className="pl-4 list-disc text-sm">
+                        {parsed.personalLoans.map((p: any, i: number) => (
+                            <li key={i}>{p.lender} (Balance: <span className="font-mono">${p.currentBalance.toLocaleString()}</span>, Rate: {p.interestRate}%)</li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+            {parsed.otherLiabilities && (
+                <div>
+                    <div className="font-medium mb-1">Other Liabilities</div>
+                    <ul className="pl-4 list-disc text-sm">
+                        {parsed.otherLiabilities.map((o: any, i: number) => (
+                            <li key={i}>{o.description}: <span className="font-mono">${o.amount.toLocaleString()}</span></li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+            {parsed.totalLiabilities && (
+                <div className="font-semibold mt-2">Total Liabilities: <span className="font-mono">${parsed.totalLiabilities.toLocaleString()}</span></div>
+            )}
+            {parsed.monthlyDebtObligations && (
+                <div className="font-semibold">Monthly Debt Obligations: <span className="font-mono">${parsed.monthlyDebtObligations.toLocaleString()}</span></div>
+            )}
+        </div>
+    );
+}
 
 interface FinancialDetailsTabProps {
     data: Client;
@@ -132,8 +261,7 @@ const FinancialDetailsTab: React.FC<FinancialDetailsTabProps> = ({ data: client,
                         </div>
                     ) : (
                         <>
-                            {renderJsonData(client.assets)}
-                            {!client.assets && <p className="text-muted-foreground">No asset information provided.</p>}
+                            {renderAssetsData(client.assets)}
                         </>
                     )}
                 </CardContent>
@@ -151,8 +279,7 @@ const FinancialDetailsTab: React.FC<FinancialDetailsTabProps> = ({ data: client,
                         </div>
                     ) : (
                         <>
-                            {renderJsonData(client.liabilities)}
-                            {!client.liabilities && <p className="text-muted-foreground">No liability information provided.</p>}
+                            {renderLiabilitiesData(client.liabilities)}
                         </>
                     )}
                 </CardContent>

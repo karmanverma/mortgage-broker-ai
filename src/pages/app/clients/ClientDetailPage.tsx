@@ -435,10 +435,10 @@ const ClientDetailPage = () => {
         {/* Main Content Area with Tabs */} 
         <main className="flex-1 min-w-0">
            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-             <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 mb-4">
+              <TabsList className="flex w-full mb-4 overflow-x-auto">
                {navItems.map((item) => (
-                 <TabsTrigger key={item.id} value={item.id} className="flex-1">
-                   <item.icon className="mr-2 h-4 w-4" />
+                  <TabsTrigger key={item.id} value={item.id} className="flex-shrink-0 flex items-center whitespace-nowrap px-3">
+                    <item.icon className="mr-1 h-4 w-4 flex-shrink-0" />
                    {item.label}
                  </TabsTrigger>
                ))}

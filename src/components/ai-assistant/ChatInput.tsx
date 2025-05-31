@@ -153,7 +153,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                     type="submit"
                     size="icon"
                     disabled={!newMessage.trim() || isWaitingForAI}
-                    className="h-8 w-8 text-muted-foreground hover:text-primary disabled:text-muted-foreground/50"
+                    className="h-8 w-8 text-white hover:text-[#ff6600] disabled:text-muted-foreground/50"
                     aria-label="Send message"
                   >
                     {isWaitingForAI ? (
