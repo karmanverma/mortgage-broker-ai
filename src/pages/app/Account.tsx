@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import type { Tables } from "@/types/supabase";
 
-
+// Icons
 import { 
   Bell, 
   CreditCard, 
@@ -27,8 +29,17 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription,
+  DialogFooter,
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger 
+} from "@/components/ui/dialog";
 
-
+// Select
 import { 
   Select, 
   SelectContent, 
@@ -42,6 +53,7 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/components/ui/use-toast";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAvatarUpload } from "@/hooks/useAvatarUpload";
 
 // Simulated user data
 const userData = {
@@ -151,9 +163,50 @@ const Account = () => {
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') || 'profile';
   
-  const { profile, updateProfile, isLoading: authLoading } = useAuth();
-  const [user, setUser] = useState(profile);
+  const { profile, user: authUser, initialized } = useAuth();
+  const authLoading = !initialized;
+  
+  // Add direct Supabase profile update function
+  const updateProfile = async (updates: Partial<Tables<'profiles'>>) => {
+    if (!authUser?.id) throw new Error("User not authenticated");
+    
+    const { error } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', authUser.id);
+      
+    if (error) throw error;
+    
+    return { data: true };
+  };
   const [loading, setLoading] = useState(false);
+  const [localProfile, setLocalProfile] = useState({
+    first_name: '',
+    last_name: '',
+    company_name: '',
+    avatar_url: '',
+    email: '',
+    phone: '',
+    notifications: {
+      email: {
+        updates: false,
+        marketing: false,
+        newRates: false,
+        newDocuments: false
+      },
+      push: {
+        updates: false,
+        marketing: false,
+        newRates: false,
+        newDocuments: false
+      }
+    },
+    security: {
+      twoFactorEnabled: false,
+      lastPasswordChange: ''
+    }
+  });
+  
   const [passwordFields, setPasswordFields] = useState({
     currentPassword: "",
     newPassword: "",
@@ -162,21 +215,58 @@ const Account = () => {
   
   const { toast } = useToast();
 
-  // Sync local state with profile from context
+  // Initialize local profile state when profile is loaded
   useEffect(() => {
-    setUser(profile);
-  }, [profile]);
+    if (profile) {
+      // Only sync fields that are guaranteed to exist on the profile type.
+      // Other fields like phone, notifications, and security will be managed
+      // in the local state until the database schema is updated.
+      setLocalProfile(prev => ({
+        ...prev,
+        first_name: profile.first_name || '',
+        last_name: profile.last_name || '',
+        company_name: profile.company_name || '',
+        avatar_url: profile.avatar_url || '',
+        email: authUser?.email || '',
+        // The following are not on the profile type, so we don't sync them.
+        // phone: (profile as any).phone || '', 
+        // notifications: (profile as any).notifications || prev.notifications,
+        // security: (profile as any).security || prev.security,
+      }));
+    }
+  }, [profile, authUser]);
+
+  // Show loading state while auth is initializing
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Handle case where user is loaded but profile is not
+  if (!profile) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-center">
+        <h2 className="text-xl font-semibold text-destructive">Error Loading Profile</h2>
+        <p className="text-muted-foreground mt-2">
+          We couldn't load your profile data. Please try refreshing the page or contact support if the problem persists.
+        </p>
+      </div>
+    );
+  }
 
   // Handle form submission for profile update
   const handleProfileUpdate = async () => {
-    if (!user) return;
+    if (!profile) return;
     setLoading(true);
     try {
       await updateProfile({
-        first_name: user.first_name || '',
-        last_name: user.last_name || '',
-        company_name: user.company_name || '',
-        avatar_url: user.avatar_url || '',
+        first_name: localProfile.first_name,
+        last_name: localProfile.last_name,
+        company_name: localProfile.company_name,
+        avatar_url: localProfile.avatar_url
       });
       toast({
         title: "Profile updated",
@@ -199,12 +289,12 @@ const Account = () => {
     type: 'updates' | 'marketing' | 'newRates' | 'newDocuments', 
     value: boolean
   ) => {
-    setUser({
-      ...user,
+    setLocalProfile({
+      ...localProfile,
       notifications: {
-        ...user.notifications,
+        ...localProfile.notifications,
         [channel]: {
-          ...user.notifications[channel],
+          ...localProfile.notifications[channel],
           [type]: value
         }
       }
@@ -246,10 +336,10 @@ const Account = () => {
 
   // Toggle two-factor authentication
   const toggleTwoFactor = (enabled: boolean) => {
-    setUser({
-      ...user,
+    setLocalProfile({
+      ...localProfile,
       security: {
-        ...user.security,
+        ...localProfile.security,
         twoFactorEnabled: enabled
       }
     });
@@ -316,8 +406,8 @@ const Account = () => {
               <div className="flex flex-col sm:flex-row items-start gap-6">
                 <div className="flex flex-col items-center gap-2">
                   <Avatar className="h-24 w-24">
-                    <AvatarImage src={user?.avatar_url || ''} />
-                    <AvatarFallback>{(user?.first_name?.charAt(0) || user?.last_name?.charAt(0) || '?')}</AvatarFallback>
+                    <AvatarImage src={localProfile.avatar_url || ''} />
+                    <AvatarFallback>{(localProfile.first_name?.charAt(0) || localProfile.last_name?.charAt(0) || '?')}</AvatarFallback>
                   </Avatar>
                   <Dialog open={avatarDialogOpen} onOpenChange={open => { setAvatarDialogOpen(open); if (!open) reset(); }}>
                     <DialogTrigger asChild>
@@ -371,8 +461,8 @@ const Account = () => {
                       <Label htmlFor="first_name">First Name</Label>
                       <Input
                         id="first_name"
-                        value={user.first_name || ''}
-                        onChange={e => setUser(u => u ? { ...u, first_name: e.target.value } : u)}
+                        value={localProfile.first_name || ''}
+                        onChange={e => setLocalProfile({...localProfile, first_name: e.target.value})}
                         disabled={loading || authLoading}
                       />
                     </div>
@@ -380,8 +470,8 @@ const Account = () => {
                       <Label htmlFor="last_name">Last Name</Label>
                       <Input
                         id="last_name"
-                        value={user.last_name || ''}
-                        onChange={e => setUser(u => u ? { ...u, last_name: e.target.value } : u)}
+                        value={localProfile.last_name || ''}
+                        onChange={e => setLocalProfile({...localProfile, last_name: e.target.value})}
                         disabled={loading || authLoading}
                       />
                     </div>
@@ -392,8 +482,8 @@ const Account = () => {
                       <Label htmlFor="company_name">Company</Label>
                       <Input
                         id="company_name"
-                        value={user.company_name || ''}
-                        onChange={e => setUser(u => u ? { ...u, company_name: e.target.value } : u)}
+                        value={localProfile.company_name || ''}
+                        onChange={e => setLocalProfile({...localProfile, company_name: e.target.value})}
                         disabled={loading || authLoading}
                       />
                     </div>
@@ -401,8 +491,8 @@ const Account = () => {
                       <Label htmlFor="phone">Phone Number</Label>
                       <Input
                         id="phone"
-                        value={user.phone}
-                        onChange={(e) => setUser({ ...user, phone: e.target.value })}
+                        value={localProfile.phone}
+                        onChange={(e) => setLocalProfile({...localProfile, phone: e.target.value})}
                       />
                     </div>
                   </div>
@@ -444,23 +534,23 @@ const Account = () => {
               <CardHeader className="pb-3">
                 <CardTitle>Current Plan</CardTitle>
                 <CardDescription>
-                  You are currently on the {user && user.subscription && user.subscription.plan ? user.subscription.plan : 'Free'} plan
+                  You are currently on the {userData.subscription && userData.subscription.plan ? userData.subscription.plan : 'Free'} plan
                 </CardDescription>
               </CardHeader>
               <CardContent className="pb-3">
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="font-semibold text-xl">{user && user.subscription && user.subscription.plan ? user.subscription.plan : 'Free'}</h3>
-                      <p className="text-sm text-muted-foreground">{user && user.subscription && user.subscription.price ? user.subscription.price : ''}</p>
+                      <h3 className="font-semibold text-xl">{userData.subscription && userData.subscription.plan ? userData.subscription.plan : 'Free'}</h3>
+                      <p className="text-sm text-muted-foreground">{userData.subscription && userData.subscription.price ? userData.subscription.price : ''}</p>
                     </div>
-                    <Badge>{user && user.subscription && user.subscription.status ? user.subscription.status : ''}</Badge>
+                    <Badge>{userData.subscription && userData.subscription.status ? userData.subscription.status : ''}</Badge>
                   </div>
                   
                   <div className="space-y-2">
                     <h4 className="text-sm font-medium">Includes:</h4>
                     <ul className="space-y-2">
-                      {user && user.subscription && user.subscription.features ? user.subscription.features.map((feature, index) => (
+                      {userData.subscription && userData.subscription.features ? userData.subscription.features.map((feature, index) => (
                         <li key={index} className="flex items-center text-sm">
                           <div className="mr-2 h-4 w-4 rounded-full bg-primary/20 flex items-center justify-center">
                             <div className="h-2 w-2 rounded-full bg-primary"></div>
@@ -476,35 +566,35 @@ const Account = () => {
                   <div className="space-y-2">
                     <h4 className="text-sm font-medium">Current Usage:</h4>
                     <div className="space-y-4">
-                      {user && user.subscription && user.subscription.usage && user.subscription.usage.aiQueries ? (
+                      {userData.subscription && userData.subscription.usage && userData.subscription.usage.aiQueries ? (
                         <div className="space-y-1">
                           <div className="flex items-center justify-between text-sm">
                             <span>AI Queries</span>
                             <span>
-                              {user.subscription.usage.aiQueries.used} / {user.subscription.usage.aiQueries.total}
+                              {userData.subscription.usage.aiQueries.used} / {userData.subscription.usage.aiQueries.total}
                             </span>
                           </div>
-                          <Progress value={user.subscription.usage.aiQueries.percentage} />
+                          <Progress value={userData.subscription.usage.aiQueries.percentage} />
                         </div>
                       ) : null}
                       
-                      {user && user.subscription && user.subscription.usage && user.subscription.usage.storage ? (
+                      {userData.subscription && userData.subscription.usage && userData.subscription.usage.storage ? (
                         <div className="space-y-1">
                           <div className="flex items-center justify-between text-sm">
                             <span>Storage</span>
                             <span>
-                              {user.subscription.usage.storage.used} GB / {user.subscription.usage.storage.total} GB
+                              {userData.subscription.usage.storage.used} GB / {userData.subscription.usage.storage.total} GB
                             </span>
                           </div>
-                          <Progress value={user.subscription.usage.storage.percentage} />
+                          <Progress value={userData.subscription.usage.storage.percentage} />
                         </div>
                       ) : null}
                       
-                      {user && user.subscription && user.subscription.usage && user.subscription.usage.lenders ? (
+                      {userData.subscription && userData.subscription.usage && userData.subscription.usage.lenders ? (
                         <div className="flex items-center justify-between text-sm">
                           <span>Lenders</span>
                           <span>
-                            {user.subscription.usage.lenders.used} / {user.subscription.usage.lenders.total}
+                            {userData.subscription.usage.lenders.used} / {userData.subscription.usage.lenders.total}
                           </span>
                         </div>
                       ) : null}
@@ -514,7 +604,7 @@ const Account = () => {
               </CardContent>
               <CardFooter className="flex justify-between border-t pt-6">
                 <div className="text-sm text-muted-foreground">
-                  Renews on {user && user.subscription && user.subscription.renewalDate ? user.subscription.renewalDate : ''}
+                  Renews on {userData.subscription && userData.subscription.renewalDate ? userData.subscription.renewalDate : ''}
                 </div>
                 <div className="flex space-x-2">
                   <Button variant="outline" size="sm">Cancel Plan</Button>
@@ -537,8 +627,8 @@ const Account = () => {
                       <CreditCard className="h-5 w-5" />
                     </div>
                     <div>
-                      <div className="font-medium">{user && user.billing && user.billing.paymentMethod && user.billing.paymentMethod.brand ? user.billing.paymentMethod.brand : ''} •••• {user && user.billing && user.billing.paymentMethod && user.billing.paymentMethod.last4 ? user.billing.paymentMethod.last4 : ''}</div>
-                      <div className="text-sm text-muted-foreground">Expires {user && user.billing && user.billing.paymentMethod && user.billing.paymentMethod.expiry ? user.billing.paymentMethod.expiry : ''}</div>
+                      <div className="font-medium">{userData.billing && userData.billing.paymentMethod && userData.billing.paymentMethod.brand ? userData.billing.paymentMethod.brand : ''} •••• {userData.billing && userData.billing.paymentMethod && userData.billing.paymentMethod.last4 ? userData.billing.paymentMethod.last4 : ''}</div>
+                      <div className="text-sm text-muted-foreground">Expires {userData.billing && userData.billing.paymentMethod && userData.billing.paymentMethod.expiry ? userData.billing.paymentMethod.expiry : ''}</div>
                     </div>
                   </div>
                 </div>
@@ -554,7 +644,7 @@ const Account = () => {
                 <div className="space-y-3">
                   <h4 className="text-sm font-medium">Recent Invoices</h4>
                   <div className="space-y-2">
-                    {user && user.billing && user.billing.invoices ? user.billing.invoices.map((invoice) => (
+                    {userData.billing && userData.billing.invoices ? userData.billing.invoices.map((invoice) => (
                       <div key={invoice.id} className="flex items-center justify-between text-sm">
                         <div className="flex items-center space-x-3">
                           <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center">
@@ -686,7 +776,7 @@ const Account = () => {
                 </Label>
                 <Switch
                   id="email-updates"
-                  checked={user && user.notifications && user.notifications.email && user.notifications.email.updates}
+                  checked={localProfile.notifications && localProfile.notifications.email && localProfile.notifications.email.updates}
                   onCheckedChange={(checked) => 
                     updateNotificationPreference('email', 'updates', checked)
                   }
@@ -702,7 +792,7 @@ const Account = () => {
                 </Label>
                 <Switch
                   id="email-marketing"
-                  checked={user && user.notifications && user.notifications.email && user.notifications.email.marketing}
+                  checked={localProfile.notifications && localProfile.notifications.email && localProfile.notifications.email.marketing}
                   onCheckedChange={(checked) => 
                     updateNotificationPreference('email', 'marketing', checked)
                   }
@@ -718,7 +808,7 @@ const Account = () => {
                 </Label>
                 <Switch
                   id="email-rates"
-                  checked={user && user.notifications && user.notifications.email && user.notifications.email.newRates}
+                  checked={localProfile.notifications && localProfile.notifications.email && localProfile.notifications.email.newRates}
                   onCheckedChange={(checked) => 
                     updateNotificationPreference('email', 'newRates', checked)
                   }
@@ -734,7 +824,7 @@ const Account = () => {
                 </Label>
                 <Switch
                   id="email-documents"
-                  checked={user && user.notifications && user.notifications.email && user.notifications.email.newDocuments}
+                  checked={localProfile.notifications && localProfile.notifications.email && localProfile.notifications.email.newDocuments}
                   onCheckedChange={(checked) => 
                     updateNotificationPreference('email', 'newDocuments', checked)
                   }
@@ -760,7 +850,7 @@ const Account = () => {
                 </Label>
                 <Switch
                   id="push-updates"
-                  checked={user && user.notifications && user.notifications.push && user.notifications.push.updates}
+                  checked={localProfile.notifications && localProfile.notifications.push && localProfile.notifications.push.updates}
                   onCheckedChange={(checked) => 
                     updateNotificationPreference('push', 'updates', checked)
                   }
@@ -776,7 +866,7 @@ const Account = () => {
                 </Label>
                 <Switch
                   id="push-marketing"
-                  checked={user && user.notifications && user.notifications.push && user.notifications.push.marketing}
+                  checked={localProfile.notifications && localProfile.notifications.push && localProfile.notifications.push.marketing}
                   onCheckedChange={(checked) => 
                     updateNotificationPreference('push', 'marketing', checked)
                   }
@@ -792,7 +882,7 @@ const Account = () => {
                 </Label>
                 <Switch
                   id="push-rates"
-                  checked={user && user.notifications && user.notifications.push && user.notifications.push.newRates}
+                  checked={localProfile.notifications && localProfile.notifications.push && localProfile.notifications.push.newRates}
                   onCheckedChange={(checked) => 
                     updateNotificationPreference('push', 'newRates', checked)
                   }
@@ -808,7 +898,7 @@ const Account = () => {
                 </Label>
                 <Switch
                   id="push-documents"
-                  checked={user && user.notifications && user.notifications.push && user.notifications.push.newDocuments}
+                  checked={localProfile.notifications && localProfile.notifications.push && localProfile.notifications.push.newDocuments}
                   onCheckedChange={(checked) => 
                     updateNotificationPreference('push', 'newDocuments', checked)
                   }
@@ -858,7 +948,7 @@ const Account = () => {
             </CardContent>
             <CardFooter className="flex justify-between">
               <div className="text-sm text-muted-foreground">
-                Last changed: {user && user.security && user.security.lastPasswordChange ? user.security.lastPasswordChange : ''}
+                Last changed: {userData.security && userData.security.lastPasswordChange ? userData.security.lastPasswordChange : ''}
               </div>
               <Button onClick={handlePasswordUpdate} disabled={loading}>
                 {loading ? "Updating..." : "Update Password"}
@@ -882,12 +972,12 @@ const Account = () => {
                   </div>
                 </div>
                 <Switch
-                  checked={user && user.security && user.security.twoFactorEnabled}
+                  checked={localProfile.security && localProfile.security.twoFactorEnabled}
                   onCheckedChange={toggleTwoFactor}
                 />
               </div>
               
-              {user && user.security && user.security.twoFactorEnabled && (
+              {localProfile.security && localProfile.security.twoFactorEnabled && (
                 <div className="rounded-md border p-4 mt-4">
                   <div className="flex items-center space-x-4">
                     <div className="rounded-full bg-green-100 p-2">
@@ -914,7 +1004,7 @@ const Account = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {user && user.security && user.security.loginHistory ? user.security.loginHistory.map((login, index) => (
+                {userData.security && userData.security.loginHistory ? userData.security.loginHistory.map((login, index) => (
                   <div key={index} className="flex items-center space-x-4">
                     <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
                       <Lock className="h-5 w-5" />

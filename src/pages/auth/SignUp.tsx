@@ -37,7 +37,8 @@ const SignUp = () => {
   const [error, setError] = useState("");
   const [passwordStrength, setPasswordStrength] = useState(0);
   
-  const { signUp, isLoading } = useAuth();
+  const { signUp, initialized } = useAuth();
+  const isLoading = !initialized;
   const navigate = useNavigate();
 
   const updateFormData = (key: string, value: string | boolean) => {
@@ -110,12 +111,11 @@ const SignUp = () => {
     }
     
     try {
-      await signUp(formData.email, formData.password, {
-        first_name: formData.firstName,
-        last_name: formData.lastName
-      });
+      // Use the simplified signUp from our new auth context
+      await signUp(formData.email, formData.password);
       
-      // Since we're using email confirmation, we'll show a message and redirect to login
+      // Show success message and redirect to login
+      alert("Check your email for the confirmation link");
       navigate('/login');
     } catch (error: any) {
       setError(error.message || "An error occurred during signup");

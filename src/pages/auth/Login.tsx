@@ -23,7 +23,8 @@ const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [staySignedIn, setStaySignedIn] = useState(true); // Default to true
   
-  const { signIn, isLoading } = useAuth();
+  const { signIn, initialized } = useAuth();
+  const isLoading = !initialized;
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -38,8 +39,13 @@ const Login = () => {
 
     try {
       console.log('Login form submitted, attempting to sign in');
-      await signIn(email, password); // Only pass two arguments, ignore persistence for now
-      // Auth state change will handle navigation to /app
+      const { session, user } = await signIn(email, password);
+      console.log('Sign in successful:', { session: !!session, user: !!user });
+      
+      if (session) {
+        // Explicitly navigate on successful login
+        navigate(from);
+      }
     } catch (error: any) {
       console.error('Login form error:', error);
       setError(error.message || "Failed to sign in. Please check your credentials.");

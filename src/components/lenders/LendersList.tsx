@@ -82,7 +82,7 @@ export const LendersList: React.FC<LendersListProps> = ({
       {/* View toggle has been moved to LenderSearch component */}
 
       {view === "table" && (
-        <div className="rounded-md border">
+        <div className="rounded-md border bg-white">
           <Table>
             <TableHeader>
               <TableRow>

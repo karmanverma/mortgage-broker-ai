@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -72,68 +73,97 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ data: documents }) => {
     };
 
     return (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                    <CardTitle>Documents</CardTitle>
-                    <CardDescription>Manage documents uploaded for this client.</CardDescription>
-                </div>
-                 <Button onClick={handleUploadClick}>
-                    <Upload className="mr-2 h-4 w-4" /> Upload Document
-                </Button>
+  <Card className="w-full">
+    {/* Top-level Progress Indicator */}
+    <CardHeader className="pb-2">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+        <div>
+          <CardTitle>Documents</CardTitle>
+          <CardDescription>
+            Manage documents uploaded for this client. Track progress and upload required files by category.
+          </CardDescription>
+        </div>
+        {/* Overall Completion Progress */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Completion</span>
+          {/* Replace with actual completion logic */}
+          <div className="w-32"><Progress value={65} /></div>
+          <span className="text-xs text-muted-foreground">65%</span>
+        </div>
+      </div>
+    </CardHeader>
+    <CardContent>
+      {/* Document Categories Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {[
+          { key: 'id', label: 'Identification Documents' },
+          { key: 'income', label: 'Income Verification' },
+          { key: 'asset', label: 'Asset Documentation' },
+          { key: 'property', label: 'Property Documents' },
+          { key: 'additional', label: 'Additional Documents' },
+        ].map((cat) => (
+          <Card key={cat.key} className="flex flex-col h-full">
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-base">{cat.label}</CardTitle>
+                {/* Category Progress Ring */}
+                <Progress value={40} className="w-16 h-2 ml-auto" />
+              </div>
             </CardHeader>
-            <CardContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Name</TableHead>
-                            <TableHead>Type</TableHead>
-                            <TableHead>Size</TableHead>
-                            <TableHead>Uploaded At</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {documents && documents.length > 0 ? (
-                            documents.map((doc) => (
-                                <TableRow key={doc.id}>
-                                    <TableCell className="font-medium">
-                                        <div className="flex items-center space-x-2">
-                                             <FileText className="h-4 w-4 text-muted-foreground" />
-                                             <span>{doc.name || 'Unnamed Document'}</span>
-                                        </div>
-                                        {doc.description && <p className="text-xs text-muted-foreground mt-1">{doc.description}</p>}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge variant="outline">{doc.file_type || 'Unknown'}</Badge>
-                                    </TableCell>
-                                    <TableCell>{formatFileSize(doc.file_size)}</TableCell>
-                                    <TableCell>{formatDate(doc.created_at)}</TableCell>
-                                    <TableCell className="text-right">
-                                         <Button variant="ghost" size="sm" className="mr-1" onClick={() => handlePreviewClick(doc)} title="Preview">
-                                            <Eye className="h-4 w-4" />
-                                        </Button>
-                                        <Button variant="ghost" size="sm" className="mr-1" onClick={() => handleDownloadClick(doc)} title="Download">
-                                            <Download className="h-4 w-4" />
-                                        </Button>
-                                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDeleteClick(doc.id)} title="Delete">
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        ) : (
-                            <TableRow>
-                                <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
-                                    No documents found for this client.
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
+            <CardContent className="flex-1 flex flex-col gap-2">
+              {/* Upload Zone */}
+              <div
+                className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg min-h-[200px] p-4 bg-muted/40 hover:border-primary transition cursor-pointer"
+                // TODO: Add drag-and-drop logic and state
+              >
+                <Upload className="w-8 h-8 text-muted-foreground mb-2" />
+                <span className="font-medium">Drop files here or</span>
+                <Button variant="outline" size="sm" className="mt-2">Browse Files</Button>
+                <div className="flex gap-2 mt-2 text-xs text-muted-foreground">
+                  <FileText className="w-4 h-4" />
+                  <span>PDF, JPG, PNG • Max 25MB</span>
+                </div>
+              </div>
+              {/* Uploaded Files List (scaffolded) */}
+              <div className="mt-2 space-y-2">
+                {/* Example uploaded file card */}
+                {/* Map actual files for this category here */}
+                <Card className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4 min-h-[80px] w-full">
+  {/* Left: File info */}
+  <div className="flex flex-col gap-1 flex-1 min-w-0">
+  <span className="truncate font-medium text-base w-full" title="passport_v1.pdf">passport_v1.pdf</span>
+  <div className="flex flex-wrap items-center gap-2">
+    <Badge variant="outline">PDF</Badge>
+    <span className="text-xs text-muted-foreground">2.1 MB</span>
+  </div>
+  <span className="text-xs text-muted-foreground mt-1">2 hours ago</span>
+</div>
+  {/* Right: Meta, status, actions */}
+  <div className="flex flex-col md:items-end gap-2 w-full md:w-auto mt-2 md:mt-0">
+    <div className="flex flex-col items-start md:items-end gap-1">
+  <Badge variant="secondary" className="bg-gray-200 text-gray-700">Pending Review</Badge>
+</div>
+    <div className="flex gap-1">
+      <Button variant="ghost" size="icon" title="View"><Eye className="w-4 h-4" /></Button>
+      <Button variant="ghost" size="icon" title="Delete"><Trash2 className="w-4 h-4 text-destructive" /></Button>
+    </div>
+  </div>
+</Card>
+                {/* End example file card */}
+              </div>
             </CardContent>
-        </Card>
-    );
+          </Card>
+        ))}
+      </div>
+      {/* Global Actions */}
+      <div className="flex flex-col md:flex-row gap-2 justify-end mt-8">
+        <Button variant="secondary">Export Summary</Button>
+        <Button variant="default">Save All</Button>
+      </div>
+    </CardContent>
+  </Card>
+);
+
 };
 
 export default DocumentsTab;
