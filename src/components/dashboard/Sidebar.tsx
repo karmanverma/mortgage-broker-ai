@@ -59,7 +59,6 @@ const Sidebar = ({ isOpen, toggleSidebar, onClose, isMobile }: SidebarProps) => 
     { name: 'Lenders', href: '/app/lenders', icon: Building },
     { name: 'Clients', href: '/app/clients', icon: Users },
     { name: 'AI Assistant', href: '/app/assistant', icon: MessageSquare },
-    { name: 'Library', href: '/app/library', icon: Library },
   ];
 
   const handleLogout = async () => {
@@ -86,15 +85,16 @@ const Sidebar = ({ isOpen, toggleSidebar, onClose, isMobile }: SidebarProps) => 
     return msg.length > maxLen ? msg.slice(0, maxLen) + '…' : msg;
   };
 
-  // Render Library menu item with last 3 conversations
-  const renderLibraryMenu = () => {
+  // Render AI Assistant menu item with last 4 conversations + View All
+  const renderAIAssistantMenu = () => {
     // Sort conversations by updated_at or created_at descending
     const sorted = (conversations || []).slice().sort((a, b) => {
       const aTime = new Date(a.updated_at || a.created_at || 0).getTime();
       const bTime = new Date(b.updated_at || b.created_at || 0).getTime();
       return bTime - aTime;
     });
-    const lastThree = sorted.slice(0, 3);
+    const lastFour = sorted.slice(0, 4);
+    
     return (
       <div>
         <Tooltip>
@@ -103,45 +103,56 @@ const Sidebar = ({ isOpen, toggleSidebar, onClose, isMobile }: SidebarProps) => 
               className={cn(
                 'flex items-center px-3 py-2 rounded-md text-sm font-medium group cursor-pointer',
                 !isOpen && !isMobile && 'justify-center',
-                currentPath.startsWith('/app/library')
+                currentPath.startsWith('/app/assistant')
                   ? 'bg-secondary text-primary'
                   : 'text-foreground hover:bg-secondary hover:text-foreground'
               )}
-              onClick={() => navigate('/app/library')}
+              onClick={() => navigate('/app/assistant')}
             >
-              <Library
+              <MessageSquare
                 className={cn(
                   'h-5 w-5 flex-shrink-0',
                   (isOpen || isMobile) ? 'mr-3' : 'mr-0',
-                  currentPath.startsWith('/app/library') ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
+                  currentPath.startsWith('/app/assistant') ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
                 )}
               />
-              {(isOpen || isMobile) && <span className="flex-1 truncate">Library</span>}
+              {(isOpen || isMobile) && <span className="flex-1 truncate">AI Assistant</span>}
             </div>
           </TooltipTrigger>
           {(!isOpen && !isMobile) && (
             <TooltipContent side="right" sideOffset={5}>
-              Library
+              AI Assistant
             </TooltipContent>
           )}
         </Tooltip>
-        {/* Show last 3 conversations */}
-        {(isOpen || isMobile) && lastThree.length > 0 && (
-          <div className="ml-10 mt-2 space-y-1">
-            {lastThree.map((conv) => (
+        
+        {/* Show last 4 conversations + View All */}
+        {(isOpen || isMobile) && (
+          <div className="ml-8 mt-2 space-y-1">
+            {lastFour.map((conv) => (
               <div
                 key={conv.session_id}
-                className="cursor-pointer text-xs text-muted-foreground hover:text-primary truncate"
+                className="cursor-pointer text-xs text-muted-foreground hover:text-primary truncate py-1 px-2 rounded hover:bg-secondary/50"
                 title={conv.message}
                 onClick={(e) => {
                   e.stopPropagation();
                   setActiveConversation(conv.session_id);
-                  navigate(`/app/assistant?session=${conv.session_id}`);
+                  navigate(`/app/assistant?mode=chat&session=${conv.session_id}`);
                 }}
               >
                 {truncateMessage(conv.message)}
               </div>
             ))}
+            {/* View All link */}
+            <div
+              className="cursor-pointer text-xs text-primary hover:text-primary/80 py-1 px-2 rounded hover:bg-secondary/50 font-medium"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate('/app/assistant?mode=library');
+              }}
+            >
+              View all conversations →
+            </div>
           </div>
         )}
       </div>
@@ -204,8 +215,8 @@ const Sidebar = ({ isOpen, toggleSidebar, onClose, isMobile }: SidebarProps) => 
         <div className="flex-1 overflow-y-auto py-4 px-3">
           <nav className="space-y-1">
             {navigation.map((item) => {
-              if (item.name === 'Library') {
-                return <div key="Library">{renderLibraryMenu()}</div>;
+              if (item.name === 'AI Assistant') {
+                return <div key="AI Assistant">{renderAIAssistantMenu()}</div>;
               }
               const isActive = currentPath === item.href ||
                 (item.href !== '/app' && currentPath.startsWith(item.href)) ||

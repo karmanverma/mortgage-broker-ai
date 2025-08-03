@@ -44,23 +44,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { AddLenderForm } from "@/components/lenders/AddLenderForm";
+import { useImprovedLenders } from "@/hooks/useImprovedLenders";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/components/ui/use-toast";
 import { formatDistanceToNow } from "date-fns";
-
-const fetchLenders = async () => {
-  const { data, error } = await supabase
-    .from('lenders')
-    .select('*')
-    .limit(4);
-
-  if (error) {
-    console.error("Error fetching lenders:", error);
-    throw error;
-  }
-  return data;
-};
 
 const fetchActivities = async (userId: string) => {
   console.log("Attempting to fetch activities...");
@@ -100,13 +88,13 @@ const Dashboard = () => {
   const statusOptions = ["Active", "Pending", "Inactive"];
 
   const {
-    data: lenders,
+    lenders: allLenders,
     isLoading: isLoadingLenders,
     error: lendersError,
-  } = useQuery({
-    queryKey: ['lenders'],
-    queryFn: fetchLenders,
-  });
+  } = useImprovedLenders();
+
+  // Get first 4 lenders for dashboard display
+  const lenders = allLenders?.slice(0, 4) || [];
 
   const {
     data: activities,
@@ -151,13 +139,7 @@ const Dashboard = () => {
   });
 
   React.useEffect(() => {
-    if (lendersError) {
-      toast({
-        variant: "destructive",
-        title: "Error fetching lenders",
-        description: lendersError.message,
-      });
-    }
+    // Lender errors are now handled automatically by useImprovedLenders
     if (activitiesError) {
       console.error("Dashboard activitiesError effect:", activitiesError);
       toast({
@@ -173,7 +155,7 @@ const Dashboard = () => {
         description: clientsError.message,
       });
     }
-  }, [lendersError, activitiesError, clientsError]);
+  }, [activitiesError, clientsError]);
 
   if (isLoadingLenders || isLoadingActivities || isLoadingClients) {
     return (

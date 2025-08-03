@@ -1,8 +1,7 @@
 
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { useImprovedClients } from '@/hooks/useImprovedClients';
 import { toast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,14 +15,23 @@ interface AddClientDialogProps {
 }
 
 export function AddClientDialog({ open, onOpenChange, onClientAdded }: AddClientDialogProps) {
-  const { user } = useAuth();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { addClient, isAdding } = useImprovedClients();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
-    status: 'active'
+    streetAddress: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    employmentStatus: 'Employed' as const,
+    annualIncome: 0,
+    loanAmountSought: 0,
+    loanType: 'Conventional' as const,
+    creditScoreRange: '<600' as const,
+    applicationStatus: 'New' as const,
+    notes: ''
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -35,48 +43,39 @@ export function AddClientDialog({ open, onOpenChange, onClientAdded }: AddClient
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
-
-    setIsSubmitting(true);
-    try {
-      const { error } = await supabase
-        .from('clients')
-        .insert({
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          email: formData.email,
-          phone: formData.phone,
-          status: formData.status,
-          user_id: user.id
-        });
-
-      if (error) throw error;
-      
-      toast({
-        title: "Client added successfully",
-        description: `${formData.firstName} ${formData.lastName} has been added to your clients.`
-      });
-      
-      onClientAdded();
-      setFormData({
-        firstName: '',
-        lastName: '',
-        email: '',
-        phone: '',
-        status: 'active'
-      });
-    } catch (error) {
-      console.error('Error adding client:', error);
+    
+    if (!formData.firstName || !formData.lastName || !formData.email) {
       toast({
         variant: "destructive",
-        title: "Failed to add client",
-        description: (error as Error).message || "An error occurred. Please try again."
+        title: "Missing Information",
+        description: "Please fill out all required fields.",
       });
-    } finally {
-      setIsSubmitting(false);
+      return;
     }
+
+    // No need for await - optimistic updates handle this
+    addClient(formData);
+    
+    onClientAdded();
+    setFormData({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      streetAddress: '',
+      city: '',
+      state: '',
+      zipCode: '',
+      employmentStatus: 'Employed' as const,
+      annualIncome: 0,
+      loanAmountSought: 0,
+      loanType: 'Conventional' as const,
+      creditScoreRange: '<600' as const,
+      applicationStatus: 'New' as const,
+      notes: ''
+    });
   };
 
   return (
@@ -130,25 +129,50 @@ export function AddClientDialog({ open, onOpenChange, onClientAdded }: AddClient
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="status">Status</Label>
-            <Select
-              value={formData.status}
-              onValueChange={(value) => handleSelectChange('status', value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label htmlFor="streetAddress">Street Address</Label>
+            <Input
+              id="streetAddress"
+              name="streetAddress"
+              value={formData.streetAddress}
+              onChange={handleInputChange}
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="city">City</Label>
+              <Input
+                id="city"
+                name="city"
+                value={formData.city}
+                onChange={handleInputChange}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="state">State</Label>
+              <Input
+                id="state"
+                name="state"
+                value={formData.state}
+                onChange={handleInputChange}
+                maxLength={2}
+                placeholder="CA"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="zipCode">ZIP Code</Label>
+              <Input
+                id="zipCode"
+                name="zipCode"
+                value={formData.zipCode}
+                onChange={handleInputChange}
+                maxLength={5}
+              />
+            </div>
           </div>
           <div className="flex justify-end space-x-2">
             <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Adding..." : "Add Client"}
+            <Button type="submit" disabled={isAdding}>
+              {isAdding ? "Adding..." : "Add Client"}
             </Button>
           </div>
         </form>

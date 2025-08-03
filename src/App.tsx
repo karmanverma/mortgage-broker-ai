@@ -2,7 +2,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+
+// Error Boundary
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // Auth context
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -20,30 +24,48 @@ import ForgotPassword from "./pages/auth/ForgotPassword";
 import Dashboard from "./pages/app/Dashboard";
 import Lenders from "./pages/app/Lenders";
 import AIAssistant from "./pages/app/AIAssistant";
-// Removed AIAssist import
+import NewAIAssistant from "./pages/app/NewAIAssistant";
+import NewAIAssistantV2 from "./pages/app/NewAIAssistantV2";
 import Account from "./pages/app/Account";
 // Import Client Pages
 import ClientsPage from "./pages/app/clients/ClientsPage";
 import ClientDetailPage from "./pages/app/clients/ClientDetailPage";
-import LibraryPage from "./pages/app/Library"; // Import the new Library page
 
 
 // Layout components
 import DashboardLayout from "./components/layouts/DashboardLayout";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+// Configure React Query with better defaults
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
+      retry: (failureCount, error: any) => {
+        // Don't retry on 4xx errors
+        if (error?.status >= 400 && error?.status < 500) {
+          return false;
+        }
+        return failureCount < 3;
+      },
+      refetchOnWindowFocus: false,
+    },
+    mutations: {
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      {/* SessionContextProvider is likely inside AuthProvider, remove from here */}
-      <BrowserRouter>
-        <AuthProvider>
-          {/* AuthProvider should now handle Supabase client initialization and context */} 
-          <Toaster />
-          <Sonner />
-          <Routes>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <BrowserRouter>
+          <AuthProvider>
+            <Toaster />
+            <Sonner />
+            <Routes>
             {/* Public routes */}
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<Login />} />
@@ -58,9 +80,9 @@ const App = () => (
             }>
               <Route index element={<Dashboard />} />
               <Route path="lenders" element={<Lenders />} />
-              <Route path="assistant" element={<AIAssistant />} />
-              {/* Removed assist route */}
-              <Route path="library" element={<LibraryPage />} /> {/* Add Library route */}
+              <Route path="assistant" element={<NewAIAssistantV2 />} />
+              <Route path="assistant-v1" element={<NewAIAssistant />} />
+              <Route path="assistant-legacy" element={<AIAssistant />} />
               <Route path="account" element={<Account />} />
               {/* Client Routes */}
               <Route path="clients" element={<ClientsPage />} />
@@ -72,8 +94,11 @@ const App = () => (
           </Routes>
         </AuthProvider>
       </BrowserRouter>
+      {/* React Query Devtools - only in development */}
+      {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
     </TooltipProvider>
   </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

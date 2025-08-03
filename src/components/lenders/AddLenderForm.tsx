@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useLenders, NewLender } from "@/hooks/useLenders";
+import { useImprovedLenders, NewLenderData } from "@/hooks/useImprovedLenders";
 import { toast } from "@/components/ui/use-toast";
 
 interface AddLenderFormProps {
@@ -34,20 +34,20 @@ export const AddLenderForm = ({
   lenderTypes,
   statusOptions,
 }: AddLenderFormProps) => {
-  const [newLender, setNewLender] = useState<NewLender>({
+  const [newLender, setNewLender] = useState<NewLenderData>({
     name: "",
     type: "",
-    contactName: "",
-    contactEmail: "",
-    contactPhone: "",
+    contact_name: "",
+    contact_email: "",
+    contact_phone: "",
     status: "Active",
     notes: ""
   });
   
-  const { addLender } = useLenders();
+  const { addLender, isAdding } = useImprovedLenders();
 
-  const handleAddLender = async () => {
-    if (!newLender.name || !newLender.type || !newLender.contactName || !newLender.contactEmail) {
+  const handleAddLender = () => {
+    if (!newLender.name || !newLender.type || !newLender.contact_name || !newLender.contact_email) {
       toast({
         variant: "destructive",
         title: "Missing Information",
@@ -56,15 +56,16 @@ export const AddLenderForm = ({
       return;
     }
     
-    await addLender(newLender);
+    // No need for await - optimistic updates handle this
+    addLender(newLender);
     
     // Reset form and close dialog
     setNewLender({
       name: "",
       type: "",
-      contactName: "",
-      contactEmail: "",
-      contactPhone: "",
+      contact_name: "",
+      contact_email: "",
+      contact_phone: "",
       status: "Active",
       notes: ""
     });
@@ -116,8 +117,8 @@ export const AddLenderForm = ({
               <Label htmlFor="contact-name">Contact Person *</Label>
               <Input 
                 id="contact-name" 
-                value={newLender.contactName} 
-                onChange={(e) => setNewLender({...newLender, contactName: e.target.value})}
+                value={newLender.contact_name} 
+                onChange={(e) => setNewLender({...newLender, contact_name: e.target.value})}
                 placeholder="e.g. John Smith"
               />
             </div>
@@ -127,8 +128,8 @@ export const AddLenderForm = ({
               <Input 
                 id="contact-email" 
                 type="email"
-                value={newLender.contactEmail} 
-                onChange={(e) => setNewLender({...newLender, contactEmail: e.target.value})}
+                value={newLender.contact_email} 
+                onChange={(e) => setNewLender({...newLender, contact_email: e.target.value})}
                 placeholder="e.g. john@example.com"
               />
             </div>
@@ -139,8 +140,8 @@ export const AddLenderForm = ({
               <Label htmlFor="contact-phone">Contact Phone</Label>
               <Input 
                 id="contact-phone" 
-                value={newLender.contactPhone} 
-                onChange={(e) => setNewLender({...newLender, contactPhone: e.target.value})}
+                value={newLender.contact_phone || ""} 
+                onChange={(e) => setNewLender({...newLender, contact_phone: e.target.value})}
                 placeholder="e.g. (555) 123-4567"
               />
             </div>
@@ -178,8 +179,8 @@ export const AddLenderForm = ({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" onClick={handleAddLender}>
-            Add Lender
+          <Button type="submit" onClick={handleAddLender} disabled={isAdding}>
+            {isAdding ? "Adding..." : "Add Lender"}
           </Button>
         </DialogFooter>
       </DialogContent>

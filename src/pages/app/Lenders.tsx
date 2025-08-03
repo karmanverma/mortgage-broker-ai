@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useLenders, Lender } from "@/hooks/useLenders";
+import { useImprovedLenders, Lender } from "@/hooks/useImprovedLenders";
 // import { useLenderDocuments } from "@/hooks/useLenderDocuments"; // Document hook now used within ManageDocumentsDialog
 
 import { LenderSearch } from "@/components/lenders/LenderSearch";
@@ -27,12 +27,9 @@ const Lenders = () => {
   const [isManageDocsOpen, setIsManageDocsOpen] = useState(false); // State for new dialog
   const [activeLender, setActiveLender] = useState<Lender | null>(null); // State for active lender context
 
-  const { lenders, isLoading: lendersLoading, fetchLenders } = useLenders();
+  const { lenders, isLoading: lendersLoading } = useImprovedLenders();
 
-  useEffect(() => {
-    console.log("Lenders.tsx: Fetching lenders...");
-    fetchLenders();
-  }, [fetchLenders]);
+  // No need for manual fetchLenders call - data is automatically managed
 
   const filteredLenders = lenders.filter(lender => {
     const matchesSearch = searchTerm === "" ||

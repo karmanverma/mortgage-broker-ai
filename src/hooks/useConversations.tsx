@@ -89,12 +89,19 @@ export function useConversations() {
 
   // Effect to fetch the conversation list on user change
   useEffect(() => {
-    fetchConversationList();
-  }, [fetchConversationList]);
+    if (user) {
+      fetchConversationList();
+    } else {
+      console.log("useConversations: No active session, clearing messages.");
+      setConversationList([]);
+      setMessages([]);
+      setCurrentSessionId(null);
+    }
+  }, [user, fetchConversationList]);
 
   // --- Effect to fetch messages when active session changes OR message trigger fires ---
   useEffect(() => {
-      if (currentSessionId) {
+      if (currentSessionId && user) {
         console.log(`useConversations: Active session changed or trigger fired for ${currentSessionId}, fetching messages...`);
         fetchMessages(currentSessionId);
       } else {
@@ -102,7 +109,7 @@ export function useConversations() {
         setMessages([]);
       }
   // Watch both currentSessionId and the trigger
-  }, [currentSessionId, messageUpdateTrigger, fetchMessages]); 
+  }, [currentSessionId, messageUpdateTrigger, fetchMessages, user]); 
 
   // Add a message to the active or specified session
   const addMessage = async (

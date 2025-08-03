@@ -17,11 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useLenders } from "@/hooks/useLenders";
+import { useImprovedLenders, Lender } from "@/hooks/useImprovedLenders";
 import { toast } from "@/components/ui/use-toast";
-import { Tables } from "@/integrations/supabase/types";
-
-type Lender = Tables<'lenders'>;
 
 interface EditLenderFormProps {
   isOpen: boolean;
@@ -39,7 +36,7 @@ export const EditLenderForm = ({
   lender,
 }: EditLenderFormProps) => {
   const [editedLender, setEditedLender] = useState<Lender | null>(null);
-  const { updateLender } = useLenders();
+  const { updateLender, isUpdating } = useImprovedLenders();
   
   // Initialize form with lender data when modal opens
   useEffect(() => {
@@ -48,7 +45,7 @@ export const EditLenderForm = ({
     }
   }, [isOpen, lender]);
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!editedLender) return;
     
     if (!editedLender.name || !editedLender.type) {
@@ -60,7 +57,11 @@ export const EditLenderForm = ({
       return;
     }
     
-    await updateLender(editedLender);
+    // No need for await - optimistic updates handle this
+    updateLender({ 
+      lenderId: editedLender.id, 
+      updates: editedLender 
+    });
     onClose();
   };
 
@@ -173,8 +174,8 @@ export const EditLenderForm = ({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" onClick={handleSave}>
-            Save Changes
+          <Button type="submit" onClick={handleSave} disabled={isUpdating}>
+            {isUpdating ? "Saving..." : "Save Changes"}
           </Button>
         </DialogFooter>
       </DialogContent>

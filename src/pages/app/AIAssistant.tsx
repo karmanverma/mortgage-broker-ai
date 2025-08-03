@@ -5,6 +5,7 @@ import { toast } from "@/components/ui/use-toast";
 import { ConversationSidebar } from '@/components/ai-assistant/ConversationSidebar';
 import MainChatArea from '@/components/ai-assistant/MainChatArea';
 import ContextPanel from '@/components/ai-assistant/ContextPanel'; // Keep for dialog content
+import { ChatDebugPanel } from '@/components/debug/ChatDebugPanel'; // Add debug panel
 import { cn } from '@/lib/utils';
 import { Conversation as ConversationMessage } from '@/hooks/useConversations.types';
 import { Button } from '@/components/ui/button';
@@ -78,6 +79,7 @@ const AIAssistantPage: React.FC = () => {
   const [isWaitingForAI, setIsWaitingForAI] = useState(false);
   const [isConversationDialogOpen, setIsConversationDialogOpen] = useState(false);
   const [isContextDialogOpen, setIsContextDialogOpen] = useState(false);
+  const [lastChatError, setLastChatError] = useState<Error | null>(null); // Add error tracking
 
   // --- State for Context Panel Selections ---
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null); // Start empty
@@ -120,68 +122,137 @@ const AIAssistantPage: React.FC = () => {
 
 
   const getAIResponse = useCallback(async (userMessage: string, history: ConversationMessage[], sessionId: string): Promise<string | null> => {
+    console.log('🟡 AIAssistant: getAIResponse called with:', {
+      userMessage: userMessage.substring(0, 50) + '...',
+      historyLength: history.length,
+      sessionId: sessionId,
+      hasUser: !!user
+    });
+
     if (!user) {
-        toast({ variant: "destructive", title: "Error", description: "User not logged in." });
+        console.log('❌ AIAssistant: No user found in getAIResponse');
+        const authError = new Error("User not logged in.");
+        setLastChatError(authError);
+        toast({ variant: "destructive", title: "Error", description: authError.message });
         return null;
     }
+    
+    // Clear previous error
+    setLastChatError(null);
+    
     const safeHistory = Array.isArray(history) ? history : [];
-    const historyForWebhook = safeHistory.slice(-10).map(msg => ({ sender: msg.sender, message: msg.message }));
+    const historyForWebhook = safeHistory.slice(-10).map(msg => ({ 
+      sender: msg.sender as 'user' | 'ai', 
+      message: msg.message 
+    }));
 
     // --- Derive context object directly from state ---
     const currentContext = {
-        selectedClientId: selectedClientId || undefined, // Use state
-        selectedLenderIds: selectedLenderIds,          // Use state
-        selectedDocumentIds: getSelectedDocumentIds() // Use derived state
+        selectedClientId: selectedClientId || undefined,
+        selectedLenderIds: selectedLenderIds,
+        selectedDocumentIds: getSelectedDocumentIds()
     };
     // --- End context derivation ---
 
     try {
+      console.log('🚀 AIAssistant: Sending message to n8n webhook:', {
+        url: n8nWebhookUrl,
+        userId: user.id,
+        sessionId: sessionId,
+        message: userMessage.substring(0, 100) + '...',
+        historyLength: historyForWebhook.length,
+        context: currentContext
+      });
+
       const response = await fetch(n8nWebhookUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         body: JSON.stringify({
           userId: user.id,
           userEmail: user.email,
           sessionId: sessionId,
           message: userMessage,
           history: historyForWebhook,
-          context: currentContext // Pass derived context
+          context: currentContext
         }),
       });
+
+      console.log('📡 AIAssistant: n8n webhook response status:', response.status);
+
       if (!response.ok) {
         const errorBody = await response.text();
-        throw new Error(`Webhook request failed: ${response.status}. ${errorBody}`);
+        console.error('❌ AIAssistant: n8n webhook error:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorBody
+        });
+        const webhookError = new Error(`Webhook request failed: ${response.status} ${response.statusText}. ${errorBody}`);
+        setLastChatError(webhookError);
+        throw webhookError;
       }
+
       const responseData = await response.json();
+      console.log('✅ AIAssistant: n8n webhook success response:', responseData);
+
       const aiMessageContent = responseData?.output ?? null;
       if (!aiMessageContent) {
-           console.warn("AI response format unexpected:", responseData);
-           throw new Error("Received unexpected response format from AI.");
+           console.warn("⚠️ AIAssistant: AI response format unexpected:", responseData);
+           const formatError = new Error("Received unexpected response format from AI.");
+           setLastChatError(formatError);
+           throw formatError;
       }
+
       return aiMessageContent;
     } catch (error) {
-      console.error('Error calling n8n webhook:', error);
-      toast({ variant: "destructive", title: "AI Communication Error", description: error instanceof Error ? error.message : "Could not reach AI assistant." });
+      console.error('💥 AIAssistant: Error calling n8n webhook:', error);
+      
+      const chatError = error instanceof Error ? error : new Error("Unknown error occurred");
+      setLastChatError(chatError);
+      
+      let errorMessage = "Could not reach AI assistant.";
+      if (chatError.message.includes('fetch')) {
+        errorMessage = "Network error - please check your connection.";
+      } else if (chatError.message.includes('timeout')) {
+        errorMessage = "Request timed out - please try again.";
+      } else {
+        errorMessage = chatError.message;
+      }
+      
+      toast({ 
+        variant: "destructive", 
+        title: "AI Communication Error", 
+        description: errorMessage 
+      });
       return null;
     }
-    // Update dependencies to include new state variables
   }, [user, n8nWebhookUrl, selectedClientId, selectedLenderIds, getSelectedDocumentIds, toast]);
 
   const handleSendMessage = useCallback(async (e?: React.FormEvent | React.KeyboardEvent) => {
+    console.log('🔵 AIAssistant: handleSendMessage called');
+    
     if (e && 'preventDefault' in e) e.preventDefault();
-    if (!newMessage.trim() || !user || isWaitingForAI) return;
+    if (!newMessage.trim() || !user || isWaitingForAI) {
+      console.log('🔵 AIAssistant: Early return - newMessage:', !!newMessage.trim(), 'user:', !!user, 'isWaitingForAI:', isWaitingForAI);
+      return;
+    }
+
+    console.log('🔵 AIAssistant: Processing message:', newMessage.substring(0, 50) + '...');
 
     let targetSessionId = currentSessionId;
     let isNewSession = false;
 
     if (!targetSessionId) {
+      console.log('🔵 AIAssistant: No session, starting new conversation...');
       setIsWaitingForAI(true);
       const newConv = await startNewConversation();
       if (newConv && newConv.session_id) {
         targetSessionId = newConv.session_id;
         setActiveConversation(targetSessionId);
         isNewSession = true;
-        // console.log(`Started new conversation: ${targetSessionId}`);
+        console.log(`🔵 AIAssistant: Started new conversation: ${targetSessionId}`);
       } else {
         toast({ variant: "destructive", title: "Error", description: "Could not start a new conversation." });
         setIsWaitingForAI(false);
@@ -195,12 +266,16 @@ const AIAssistantPage: React.FC = () => {
       return;
     }
 
+    console.log('🔵 AIAssistant: Using session:', targetSessionId);
+
     const userMessageContent = newMessage;
     setNewMessage('');
     if (!isNewSession) setIsWaitingForAI(true);
 
+    console.log('🔵 AIAssistant: Saving user message to database...');
     const savedUserMessage = await addMessage(userMessageContent, 'user', targetSessionId);
     if (!savedUserMessage) {
+      console.log('❌ AIAssistant: Failed to save user message');
       setIsWaitingForAI(false);
       setNewMessage(userMessageContent);
       if (isNewSession && targetSessionId) {
@@ -211,13 +286,22 @@ const AIAssistantPage: React.FC = () => {
       return;
     }
 
+    console.log('✅ AIAssistant: User message saved, calling getAIResponse...');
     const currentHistory = isNewSession ? [savedUserMessage] : [...(apiMessages || []), savedUserMessage];
-    const aiResponseContent = await getAIResponse(userMessageContent, currentHistory, targetSessionId);
+    
+    try {
+      const aiResponseContent = await getAIResponse(userMessageContent, currentHistory, targetSessionId);
+      console.log('🔵 AIAssistant: getAIResponse returned:', !!aiResponseContent);
 
-    if (aiResponseContent) {
-      await addMessage(aiResponseContent, 'ai', targetSessionId);
-    } else {
-      // toast({ variant: "default", title: "AI Response Pending", description: "Could not get AI response, but your message was saved." });
+      if (aiResponseContent) {
+        console.log('🔵 AIAssistant: Saving AI response to database...');
+        await addMessage(aiResponseContent, 'ai', targetSessionId);
+        console.log('✅ AIAssistant: AI response saved successfully');
+      } else {
+        console.log('⚠️ AIAssistant: No AI response received');
+      }
+    } catch (error) {
+      console.error('💥 AIAssistant: Error in getAIResponse:', error);
     }
 
     setIsWaitingForAI(false);
@@ -313,6 +397,19 @@ ${msg.message}`;
 
   return (
     <div className="flex flex-col min-h-screen items-center bg-background overflow-auto relative p-4">
+      {/* Debug Panel - Only show in development */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="w-full max-w-3xl mx-auto mb-4">
+          <ChatDebugPanel
+            sessionId={currentSessionId}
+            selectedClientId={selectedClientId}
+            selectedLenderIds={selectedLenderIds}
+            lastError={lastChatError}
+            isLoading={isWaitingForAI}
+          />
+        </div>
+      )}
+
       {/* Centered/empty state */}
       {messages.length === 0 && !isLoadingHistory && !isWaitingForAI && (
         <div className="flex flex-1 flex-col items-center justify-center w-full max-w-3xl mx-auto">

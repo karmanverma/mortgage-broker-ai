@@ -10,21 +10,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useNavigate } from 'react-router-dom';
-import { useClients } from '@/hooks/useClients';
+import { useImprovedClients } from '@/hooks/useImprovedClients';
 import { Client } from '@/features/clients/types';
 import { AddClientDialog } from '@/components/clients/AddClientDialog';
 
 const ClientsPage = () => {
   const navigate = useNavigate();
-  const { clients, isLoading, error, fetchClients } = useClients();
+  const { clients, isLoading, error } = useImprovedClients();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [isAddClientOpen, setIsAddClientOpen] = useState(false);
 
-  useEffect(() => {
-    fetchClients();
-  }, [fetchClients]);
+  // No need for manual fetchClients call - data is automatically managed
 
   const filteredClients = clients.filter(client => {
     const matchesSearch = searchTerm === '' || 
@@ -130,7 +128,7 @@ const ClientsPage = () => {
       ) : error ? (
         <div className="text-center p-6 text-red-500">
           <p>Error loading clients: {error.message}</p>
-          <Button variant="outline" onClick={fetchClients} className="mt-2">
+          <Button variant="outline" onClick={() => window.location.reload()} className="mt-2">
             Retry
           </Button>
         </div>
@@ -301,7 +299,7 @@ const ClientsPage = () => {
         open={isAddClientOpen} 
         onOpenChange={setIsAddClientOpen} 
         onClientAdded={() => {
-          fetchClients();
+          // No need to manually refetch - optimistic updates handle this
           setIsAddClientOpen(false);
         }} 
       />

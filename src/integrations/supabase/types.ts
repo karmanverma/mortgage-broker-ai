@@ -166,7 +166,7 @@ export type Database = {
           liabilities: Json | null
           phone: string | null
           state: string | null
-          status: string
+          status: string | null
           updated_at: string
           user_id: string
           zip_code: string | null
@@ -261,39 +261,48 @@ export type Database = {
       documents: {
         Row: {
           client_id: string | null
+          content: string | null
           created_at: string
           description: string | null
+          embeddings: string | null
           file_path: string
           file_size: number
           file_type: string
           id: string
           lender_id: string
+          meta_data: Json | null
           name: string
           updated_at: string
           user_id: string
         }
         Insert: {
           client_id?: string | null
+          content?: string | null
           created_at?: string
           description?: string | null
+          embeddings?: string | null
           file_path: string
           file_size: number
           file_type: string
           id?: string
           lender_id: string
+          meta_data?: Json | null
           name: string
           updated_at?: string
           user_id: string
         }
         Update: {
           client_id?: string | null
+          content?: string | null
           created_at?: string
           description?: string | null
+          embeddings?: string | null
           file_path?: string
           file_size?: number
           file_type?: string
           id?: string
           lender_id?: string
+          meta_data?: Json | null
           name?: string
           updated_at?: string
           user_id?: string
