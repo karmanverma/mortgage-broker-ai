@@ -20,7 +20,8 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useLenderDocuments } from '@/hooks/useLenderDocuments';
-import { Lender, LenderDocument } from '@/integrations/supabase/types';
+import { Lender } from '@/hooks/useImprovedLenders';
+import { LenderDocument } from '@/integrations/supabase/types';
 import { useToast } from "@/components/ui/use-toast";
 import ManageDocumentsTab from './ManageDocumentsTab';
 import UploadDocumentTab from './UploadDocumentTab';

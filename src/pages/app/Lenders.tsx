@@ -1,12 +1,17 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { useImprovedLenders, Lender } from "@/hooks/useImprovedLenders";
+import { PersonDisplay } from "@/components/people/PersonDisplay";
+import { PeopleManager } from "@/components/people/PeopleManager";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 // import { useLenderDocuments } from "@/hooks/useLenderDocuments"; // Document hook now used within ManageDocumentsDialog
 
-import { LenderSearch } from "@/components/lenders/LenderSearch";
 import { LendersList } from "@/components/lenders/LendersList";
-import { AddLenderForm } from "@/components/lenders/AddLenderForm";
+import LendersListUnified from "@/components/lenders/LendersListUnified";
+import { EnhancedAddLenderForm } from "@/components/lenders/EnhancedAddLenderForm";
 import { EditLenderForm } from "@/components/lenders/EditLenderForm";
 import ManageDocumentsDialog from "@/components/lenders/ManageDocumentsDialog"; // Corrected: Default import
 
@@ -17,27 +22,37 @@ const lenderTypes = ["Bank", "Broker", "Direct Lender", "Credit Union", "Corresp
 const statusOptions = ["Active", "Inactive", "New", "On Hold"];
 
 const Lenders = () => {
-  const [view, setView] = useState<"table" | "grid">("table");
+  const navigate = useNavigate();
+  const [view, setView] = useState<"grid" | "list">("list");
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedType, setSelectedType] = useState<string>("");
-  const [selectedStatus, setSelectedStatus] = useState<string>("");
+  const [selectedType, setSelectedType] = useState<string>("all");
+  const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [selectedLenders, setSelectedLenders] = useState<string[]>([]);
   const [isAddLenderOpen, setIsAddLenderOpen] = useState(false);
   const [isEditLenderOpen, setIsEditLenderOpen] = useState(false);
   const [isManageDocsOpen, setIsManageDocsOpen] = useState(false); // State for new dialog
   const [activeLender, setActiveLender] = useState<Lender | null>(null); // State for active lender context
+  const [expandedPeople, setExpandedPeople] = useState<Record<string, boolean>>({});
+  const [managingPeopleFor, setManagingPeopleFor] = useState<string | null>(null);
 
-  const { lenders, isLoading: lendersLoading } = useImprovedLenders();
+  const { 
+    lenders, 
+    isLoading: lendersLoading,
+    addPersonToLender,
+    removePersonFromLender,
+    setPrimaryPerson,
+  } = useImprovedLenders();
 
   // No need for manual fetchLenders call - data is automatically managed
 
   const filteredLenders = lenders.filter(lender => {
+    const primaryPerson = lender.primary_person;
     const matchesSearch = searchTerm === "" ||
       (lender.name && lender.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (lender.contact_name && lender.contact_name.toLowerCase().includes(searchTerm.toLowerCase()));
+      (primaryPerson && `${primaryPerson.first_name} ${primaryPerson.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()));
 
-    const matchesType = selectedType === "" || lender.type === selectedType;
-    const matchesStatus = selectedStatus === "" || lender.status === selectedStatus;
+    const matchesType = selectedType === "all" || lender.type === selectedType;
+    const matchesStatus = selectedStatus === "all" || lender.status === selectedStatus;
 
     return matchesSearch && matchesType && matchesStatus;
   });
@@ -60,8 +75,8 @@ const Lenders = () => {
 
   const resetFilters = () => {
     setSearchTerm("");
-    setSelectedType("");
-    setSelectedStatus("");
+    setSelectedType("all");
+    setSelectedStatus("all");
   };
 
   // Function to open the new Manage Documents dialog
@@ -78,52 +93,89 @@ const Lenders = () => {
     setIsEditLenderOpen(true);
   };
 
+  const togglePeopleExpanded = (lenderId: string) => {
+    setExpandedPeople(prev => ({
+      ...prev,
+      [lenderId]: !prev[lenderId]
+    }));
+  };
+
+  const handleManagePeople = (lender: Lender) => {
+    setActiveLender(lender);
+    setManagingPeopleFor(lender.id);
+  };
+
   const isLoading = lendersLoading;
 
   return (
     <div className="p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 mb-6">
-        {/* <h1 className="text-2xl font-bold tracking-tight">Lenders</h1> Removed main page title as it is now in header */}
-        <Button onClick={() => setIsAddLenderOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add New Lender
-        </Button>
-      </div>
+      <PageHeader
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Search lenders..."
+        filters={[
+          {
+            value: selectedType,
+            onValueChange: setSelectedType,
+            options: [
+              { value: 'all', label: 'All Types' },
+              ...lenderTypes.map(type => ({ value: type, label: type }))
+            ],
+            placeholder: 'Filter by type'
+          },
+          {
+            value: selectedStatus,
+            onValueChange: setSelectedStatus,
+            options: [
+              { value: 'all', label: 'All Statuses' },
+              ...statusOptions.map(status => ({ value: status, label: status }))
+            ],
+            placeholder: 'Filter by status'
+          }
+        ]}
+        viewMode={view}
+        onViewModeChange={setView}
+        viewOptions={['grid', 'list']}
+        onAddClick={() => setIsAddLenderOpen(true)}
+        addButtonText="Add Lender"
+        addButtonIcon={<Plus className="h-4 w-4" />}
+      />
 
       <div className="space-y-4">
-        <LenderSearch
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
-          selectedType={selectedType}
-          setSelectedType={setSelectedType}
-          selectedStatus={selectedStatus}
-          setSelectedStatus={setSelectedStatus}
-          resetFilters={resetFilters}
-          lenderTypes={lenderTypes}
-          statusOptions={statusOptions}
-          view={view}
-          setView={setView}
-        />
 
-        <LendersList
-          filteredLenders={filteredLenders}
-          view={view}
-          setView={setView}
-          selectedLenders={selectedLenders}
-          toggleLenderSelection={toggleLenderSelection}
-          selectAll={selectAll}
-          handleOpenManageDocuments={handleOpenManageDocuments}
-          handleOpenEditLender={handleOpenEditLender}
-          setIsAddLenderOpen={setIsAddLenderOpen}
-          resetFilters={resetFilters}
-          searchTerm={searchTerm}
-          selectedType={selectedType}
-          selectedStatus={selectedStatus}
-          isLoading={isLoading}
-        />
+        {view === 'list' ? (
+          <LendersListUnified
+            lenders={filteredLenders}
+            isLoading={isLoading}
+            onLenderClick={(lender) => navigate(`/app/lenders/${lender.id}`)}
+            onEditLender={handleOpenEditLender}
+            onManageDocuments={handleOpenManageDocuments}
+            onManagePeople={handleManagePeople}
+          />
+        ) : (
+          <LendersList
+            filteredLenders={filteredLenders}
+            view="grid"
+            setView={() => {}}
+            selectedLenders={selectedLenders}
+            toggleLenderSelection={toggleLenderSelection}
+            selectAll={selectAll}
+            handleOpenManageDocuments={handleOpenManageDocuments}
+            handleOpenEditLender={handleOpenEditLender}
+            handleManagePeople={handleManagePeople}
+            expandedPeople={expandedPeople}
+            onTogglePeopleExpanded={togglePeopleExpanded}
+            setIsAddLenderOpen={setIsAddLenderOpen}
+            resetFilters={resetFilters}
+            searchTerm={searchTerm}
+            selectedType={selectedType}
+            selectedStatus={selectedStatus}
+            isLoading={isLoading}
+          />
+        )}
       </div>
 
-      <AddLenderForm
+      <EnhancedAddLenderForm
         isOpen={isAddLenderOpen}
         onClose={() => setIsAddLenderOpen(false)}
         lenderTypes={lenderTypes}
@@ -145,6 +197,35 @@ const Lenders = () => {
         statusOptions={statusOptions}
         lender={activeLender}
       />
+
+      {/* People Management Dialog */}
+      {activeLender && managingPeopleFor && (
+        <Dialog open={!!managingPeopleFor} onOpenChange={() => setManagingPeopleFor(null)}>
+          <DialogContent className="sm:max-w-[700px]">
+            <DialogHeader>
+              <DialogTitle>Manage People for {activeLender.name}</DialogTitle>
+              <DialogDescription>
+                Add, remove, or manage people associated with this lender.
+              </DialogDescription>
+            </DialogHeader>
+            <PeopleManager
+              entityType="lender"
+              entityId={activeLender.id}
+              entityName={activeLender.name}
+              people={activeLender.people || []}
+              onAddPerson={(personId, isPrimary, relationshipType) => 
+                addPersonToLender({ lenderId: activeLender.id, personId, isPrimary, relationshipType })
+              }
+              onRemovePerson={(personId) => 
+                removePersonFromLender({ lenderId: activeLender.id, personId })
+              }
+              onSetPrimary={(personId) => 
+                setPrimaryPerson({ lenderId: activeLender.id, personId })
+              }
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };

@@ -1,6 +1,62 @@
 import { z } from 'zod';
 import { Tables, TablesInsert } from '@/integrations/supabase/types';
 
+// Client Type Options
+export const clientTypeOptions = [
+  "residential",
+  "commercial", 
+  "investor",
+] as const;
+
+export const clientStatusOptions = [
+  "active",
+  "inactive", 
+  "prospect",
+  "archived",
+] as const;
+
+export const relationshipTypeOptions = [
+  "primary_client",
+  "co_borrower",
+  "spouse", 
+  "business_partner",
+  "family_member",
+  "guarantor",
+  "investor_partner",
+  "property_manager",
+  "accountant",
+  "attorney",
+] as const;
+
+export const maritalStatusOptions = [
+  "single",
+  "married",
+  "divorced",
+  "widowed",
+  "separated",
+] as const;
+
+export const housingSituationOptions = [
+  "own",
+  "rent",
+  "live_with_family",
+  "other",
+] as const;
+
+export const businessTypeOptions = [
+  "corporation",
+  "llc",
+  "partnership",
+  "sole_proprietorship",
+  "other",
+] as const;
+
+export const riskProfileOptions = [
+  "low",
+  "medium",
+  "high",
+] as const;
+
 // Options for Select components
 export const employmentStatusOptions = [
   "Employed",
@@ -77,19 +133,20 @@ export type Client = ClientFormData & {
   dateAdded: Date;
   status?: string;
   avatarUrl?: string;
+  people_id?: string; // Add people relationship
 };
 
-// Update the mapping function to handle status
-export const mapDbClientToClient = (dbClient: Tables<"clients">): Client => ({
+// Update the mapping function to handle status and people relationship
+export const mapDbClientToClient = (dbClient: Tables<"clients">, person?: any): Client => ({
   id: dbClient.id,
-  firstName: dbClient.first_name,
-  lastName: dbClient.last_name,
-  email: dbClient.email,
-  phone: dbClient.phone || '',
-  streetAddress: dbClient.address_line1 || '',
-  city: dbClient.city || '',
-  state: dbClient.state || '',
-  zipCode: dbClient.zip_code || '',
+  firstName: person?.first_name || 'Unknown',
+  lastName: person?.last_name || 'Unknown',
+  email: person?.email_primary || '',
+  phone: person?.phone_primary || '',
+  streetAddress: person?.address_street || '',
+  city: person?.address_city || '',
+  state: person?.address_state || '',
+  zipCode: person?.address_zip || '',
   employmentStatus: (dbClient.employment_status as any) || 'Employed',
   annualIncome: dbClient.annual_income || 0,
   loanAmountSought: 0,
@@ -99,24 +156,25 @@ export const mapDbClientToClient = (dbClient: Tables<"clients">): Client => ({
   notes: '',
   dateAdded: new Date(dbClient.created_at),
   status: 'active', // Default status
-  avatarUrl: undefined // Optional avatar URL
+  avatarUrl: undefined, // Optional avatar URL
+  people_id: dbClient.people_id || undefined
 });
 
 // Add a utility function to map from our frontend format to Supabase DB format
-export const mapClientToDbClient = (client: ClientFormData, userId: string): TablesInsert<"clients"> => {
+export const mapClientToDbClient = (client: ClientFormData, userId: string, peopleId: string): TablesInsert<"clients"> => {
   // Ensure we're providing required fields for the database insert
   return {
-    first_name: client.firstName,
-    last_name: client.lastName,
-    email: client.email, // This is required by the database
-    phone: client.phone,
-    address_line1: client.streetAddress,
-    city: client.city,
-    state: client.state,
-    zip_code: client.zipCode,
     employment_status: client.employmentStatus,
     annual_income: client.annualIncome,
     user_id: userId,
-    // Map other fields as needed
+    people_id: peopleId, // Link to people table
+    // Map other client-specific fields as needed
+    employer_name: undefined,
+    job_title: undefined,
+    credit_score: undefined,
+    assets: undefined,
+    liabilities: undefined,
+    date_of_birth: undefined,
+    status: 'active'
   };
 };

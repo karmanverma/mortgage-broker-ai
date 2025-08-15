@@ -3,7 +3,8 @@ import {
   MoreHorizontal,
   Edit,
   Trash2,
-  FolderOpen
+  FolderOpen,
+  Users
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -30,14 +31,17 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
-import { useLenders } from "@/hooks/useLenders";
-import { Lender } from "@/integrations/supabase/types";
+import { useImprovedLenders, Lender } from "@/hooks/useImprovedLenders";
+import { PersonDisplay } from "@/components/people/PersonDisplay";
 
 interface LenderTableRowProps {
   lender: Lender;
   selectedLenders: string[];
   toggleLenderSelection: (id: string) => void;
   handleOpenManageDocuments: (lender: Lender) => void;
+  handleManagePeople?: (lender: Lender) => void;
+  expandedPeople?: Record<string, boolean>;
+  onTogglePeopleExpanded?: (lenderId: string) => void;
 }
 
 export const LenderTableRow = ({
@@ -45,8 +49,11 @@ export const LenderTableRow = ({
   selectedLenders,
   toggleLenderSelection,
   handleOpenManageDocuments,
+  handleManagePeople,
+  expandedPeople = {},
+  onTogglePeopleExpanded,
 }: LenderTableRowProps) => {
-  const { deleteLender } = useLenders();
+  const { deleteLender } = useImprovedLenders();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const handleDeleteClick = () => {
@@ -54,7 +61,7 @@ export const LenderTableRow = ({
   };
 
   const confirmDelete = () => {
-    deleteLender(lender.id, lender.name);
+    deleteLender({ lenderId: lender.id, lenderName: lender.name });
     setIsDeleteDialogOpen(false);
   };
 
@@ -70,12 +77,21 @@ export const LenderTableRow = ({
         </TableCell>
         <TableCell className="font-medium">{lender.name}</TableCell>
         <TableCell>{lender.type}</TableCell>
-        <TableCell>{lender.contact_name}</TableCell>
         <TableCell>
-          <div className="flex flex-col">
-            <span className="text-sm">{lender.contact_email}</span>
-            <span className="text-sm text-gray-500">{lender.contact_phone}</span>
-          </div>
+          <PersonDisplay
+            people={lender.people || []}
+            showExpanded={expandedPeople[lender.id]}
+            onToggleExpanded={() => onTogglePeopleExpanded?.(lender.id)}
+            compact
+          />
+        </TableCell>
+        <TableCell>
+          {lender.primary_person && (
+            <div className="flex flex-col">
+              <span className="text-sm">{lender.primary_person.email_primary}</span>
+              <span className="text-sm text-gray-500">{lender.primary_person.phone_primary}</span>
+            </div>
+          )}
         </TableCell>
         <TableCell>
           <Badge
@@ -116,6 +132,12 @@ export const LenderTableRow = ({
                 <FolderOpen className="h-4 w-4 mr-2" />
                 Manage Documents
               </DropdownMenuItem>
+              {handleManagePeople && (
+                <DropdownMenuItem onClick={() => handleManagePeople(lender)}>
+                  <Users className="h-4 w-4 mr-2" />
+                  Manage People
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem>
                 <Edit className="h-4 w-4 mr-2" />
                 Edit Lender

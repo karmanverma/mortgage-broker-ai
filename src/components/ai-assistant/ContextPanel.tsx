@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from '@/contexts/AuthContext';
-import { useLenders } from '@/hooks/useLenders';
+import { useImprovedLenders } from '@/hooks/useImprovedLenders';
 import { useLenderDocuments } from '@/hooks/useLenderDocuments';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
@@ -45,7 +45,7 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
     className
 }) => {
     const { user } = useAuth();
-    const { lenders: allUserLenders, isLoading: isLoadingLenders, fetchLenders } = useLenders();
+    const { lenders: allUserLenders, isLoading: isLoadingLenders } = useImprovedLenders();
     const { documents: allUserDocuments, isLoading: isLoadingDocuments, fetchDocuments } = useLenderDocuments();
 
     // Internal Component State
@@ -107,13 +107,12 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
         }, {} as Record<string, string[]>);
     }, [allUserDocuments, isLoadingDocuments]);
 
-    // Fetch base data (lenders, documents)
+    // Fetch base data (documents only - lenders are auto-fetched by improved hook)
     useEffect(() => {
         if (user) {
-            fetchLenders();
             fetchDocuments();
         }
-    }, [user, fetchLenders, fetchDocuments]);
+    }, [user, fetchDocuments]);
 
      // Effect to automatically select all lenders with documents on initial load
      useEffect(() => {

@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useConversations } from '@/hooks/useConversations';
+import { useImprovedConversations } from '@/hooks/useImprovedConversations';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
@@ -24,7 +24,7 @@ const LibraryPage: React.FC = () => {
     currentSessionId,
     startNewConversation, // Use startNewConversation
     // deleteConversation, // Destructure if delete functionality is needed here
-  } = useConversations();
+  } = useImprovedConversations();
 
   // Fetch and cache first user message for each session
   useEffect(() => {

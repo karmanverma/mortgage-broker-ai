@@ -4,83 +4,87 @@
 
 @layer base {
   :root {
-    --background: 60 17% 94%; /* isabelline */
-    --foreground: 191 49% 15%; /* gunmetal */
+    /* Light Theme - Custom Colors */
+    --background: 60 33% 98%; /* #FCFCF9 */
+    --foreground: 191 49% 15%; /* #13343b */
 
-    --card: 60 33% 98%; /* baby powder */
-    --card-foreground: 191 49% 15%; /* gunmetal */
+    --card: 60 33% 98%; /* #FCFCF9 */
+    --card-foreground: 191 49% 15%; /* #13343b */
 
-    --popover: 60 33% 98%; /* baby powder */
-    --popover-foreground: 191 49% 15%; /* gunmetal */
+    --popover: 60 33% 98%; /* #FCFCF9 */
+    --popover-foreground: 191 49% 15%; /* #13343b */
 
-    --primary: 187 81% 31%; /* teal */
-    --primary-foreground: 60 33% 98%; /* baby powder */
+    --primary: 187 81% 31%; /* #21808d */
+    --primary-foreground: 60 33% 98%; /* #FCFCF9 */
 
-    --secondary: 171 18% 92%; /* antiflash white */
-    --secondary-foreground: 191 49% 15%; /* gunmetal */
+    --secondary: 60 17% 94%; /* #F3F3EE - alt bg */
+    --secondary-foreground: 191 49% 15%; /* #13343b */
 
-    --muted: 171 18% 92%; /* antiflash white */
-    --muted-foreground: 60 3% 38%; /* dim gray */
+    --muted: 60 17% 94%; /* #F3F3EE - alt bg */
+    --muted-foreground: 60 3% 38%; /* #646765 - placeholder text */
 
-    --accent: 171 18% 92%; /* antiflash white */
-    --accent-foreground: 191 49% 15%; /* gunmetal */
+    --accent: 60 17% 94%; /* #F3F3EE - alt bg */
+    --accent-foreground: 191 49% 15%; /* #13343b */
 
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 60 33% 98%; /* baby powder */
+    --destructive-foreground: 60 33% 98%; /* #FCFCF9 */
 
-    --border: 60 11% 89%; /* alabaster */
-    --input: 60 11% 89%; /* alabaster */
-    --ring: 187 81% 31%; /* teal */
+    --border: 60 17% 94%; /* #F3F3EE */
+    --input: 60 17% 94%; /* #F3F3EE */
+    --ring: 187 81% 31%; /* #21808d */
 
     --radius: 0.5rem;
 
-    --sidebar-background: 60 11% 89%; /* alabaster */
-    --sidebar-foreground: 60 3% 38%; /* dim gray */
-    --sidebar-primary: 187 81% 31%; /* teal */
-    --sidebar-primary-foreground: 60 33% 98%; /* baby powder */
-    --sidebar-accent: 171 18% 92%; /* antiflash white */
-    --sidebar-accent-foreground: 191 49% 15%; /* gunmetal */
-    --sidebar-border: 60 11% 89%; /* alabaster */
-    --sidebar-ring: 187 81% 31%; /* teal */
+    /* Sidebar colors for light theme */
+    --sidebar-background: 60 17% 94%; /* #F3F3EE - alt bg */
+    --sidebar-foreground: 191 49% 15%; /* #13343b */
+    --sidebar-primary: 187 81% 31%; /* #21808d */
+    --sidebar-primary-foreground: 60 33% 98%; /* #FCFCF9 */
+    --sidebar-accent: 60 33% 98%; /* #FCFCF9 */
+    --sidebar-accent-foreground: 191 49% 15%; /* #13343b */
+    --sidebar-border: 60 17% 94%; /* #F3F3EE */
+    --sidebar-ring: 187 81% 31%; /* #21808d */
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    /* Dark Theme - Custom Colors */
+    --background: 0 0% 10%; /* #191A1A */
+    --foreground: 60 17% 94%; /* #ece6e7 */
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 12%; /* #1F2121 - alt bg */
+    --card-foreground: 60 17% 94%; /* #ece6e7 */
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 12%; /* #1F2121 - alt bg */
+    --popover-foreground: 60 17% 94%; /* #ece6e7 */
 
-    --primary: 261 73.3% 63.7%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 187 81% 31%; /* #21808d - same primary */
+    --primary-foreground: 60 17% 94%; /* #ece6e7 */
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 0 0% 12%; /* #1F2121 - alt bg */
+    --secondary-foreground: 60 17% 94%; /* #ece6e7 */
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 0 0% 12%; /* #1F2121 - alt bg */
+    --muted-foreground: 220 9% 59%; /* #94979c - placeholder text */
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 0 0% 12%; /* #1F2121 - alt bg */
+    --accent-foreground: 60 17% 94%; /* #ece6e7 */
 
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 60 17% 94%; /* #ece6e7 */
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 261 73.3% 63.7%;
+    --border: 0 0% 12%; /* #1F2121 */
+    --input: 0 0% 12%; /* #1F2121 */
+    --ring: 187 81% 31%; /* #21808d */
     
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 261 73.3% 63.7%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 261 73.3% 63.7%;
+    /* Sidebar colors for dark theme */
+    --sidebar-background: 0 0% 12%; /* #1F2121 - alt bg */
+    --sidebar-foreground: 60 17% 94%; /* #ece6e7 */
+    --sidebar-primary: 187 81% 31%; /* #21808d */
+    --sidebar-primary-foreground: 60 17% 94%; /* #ece6e7 */
+    --sidebar-accent: 0 0% 10%; /* #191A1A */
+    --sidebar-accent-foreground: 60 17% 94%; /* #ece6e7 */
+    --sidebar-border: 0 0% 12%; /* #1F2121 */
+    --sidebar-ring: 187 81% 31%; /* #21808d */
   }
 }
 
@@ -91,6 +95,17 @@
 
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Smooth theme transitions */
+  * {
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+  }
+
+  /* Disable transitions for elements that shouldn't animate */
+  .no-transition,
+  .no-transition * {
+    transition: none !important;
   }
 }
 

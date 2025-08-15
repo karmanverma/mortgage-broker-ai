@@ -10,6 +10,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // Auth context
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 
 // Landing page components
@@ -30,6 +31,19 @@ import Account from "./pages/app/Account";
 // Import Client Pages
 import ClientsPage from "./pages/app/clients/ClientsPage";
 import ClientDetailPage from "./pages/app/clients/ClientDetailPage";
+// Import People Page
+import People from "./pages/app/People";
+import PersonDetailPage from "./pages/app/people/PersonDetailPage";
+// Import new feature pages
+import OpportunitiesPage from "./pages/app/opportunities/OpportunitiesPage";
+import OpportunityDetailPage from "./pages/app/opportunities/OpportunityDetailPage";
+import LoansPage from "./pages/app/loans/LoansPage";
+import LoanDetailPage from "./pages/app/loans/LoanDetailPage";
+import RealtorsPage from "./pages/app/realtors/RealtorsPage";
+import NotesPage from "./pages/app/NotesPage";
+import TodosPage from "./pages/app/TodosPage";
+import RealtorDetailPage from "./pages/app/realtors/RealtorDetailPage";
+import LenderDetailPage from "./pages/app/LenderDetailPage";
 
 
 // Layout components
@@ -60,11 +74,12 @@ const queryClient = new QueryClient({
 const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <BrowserRouter>
-          <AuthProvider>
-            <Toaster />
-            <Sonner />
+      <ThemeProvider defaultTheme="system">
+        <TooltipProvider>
+          <BrowserRouter>
+            <AuthProvider>
+              <Toaster />
+              <Sonner />
             <Routes>
             {/* Public routes */}
             <Route path="/" element={<LandingPage />} />
@@ -79,24 +94,37 @@ const App = () => (
               </ProtectedRoute>
             }>
               <Route index element={<Dashboard />} />
+              {/* New feature routes */}
+              <Route path="opportunities" element={<OpportunitiesPage />} />
+              <Route path="opportunities/:id" element={<OpportunityDetailPage />} />
+              <Route path="loans" element={<LoansPage />} />
+              <Route path="loans/:id" element={<LoanDetailPage />} />
+              <Route path="realtors" element={<RealtorsPage />} />
+              <Route path="notes" element={<NotesPage />} />
+              <Route path="todos" element={<TodosPage />} />
+              <Route path="realtors/:realtorId" element={<RealtorDetailPage />} />
+              {/* Existing routes */}
               <Route path="lenders" element={<Lenders />} />
+              <Route path="lenders/:lenderId" element={<LenderDetailPage />} />
+              <Route path="clients" element={<ClientsPage />} />
+              <Route path="clients/:clientId" element={<ClientDetailPage />} />
+              <Route path="people" element={<People />} />
+              <Route path="people/:personId" element={<PersonDetailPage />} />
               <Route path="assistant" element={<NewAIAssistantV2 />} />
               <Route path="assistant-v1" element={<NewAIAssistant />} />
               <Route path="assistant-legacy" element={<AIAssistant />} />
               <Route path="account" element={<Account />} />
-              {/* Client Routes */}
-              <Route path="clients" element={<ClientsPage />} />
-              <Route path="clients/:clientId" element={<ClientDetailPage />} />
             </Route>
             
             {/* Catch-all route */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-      {/* React Query Devtools - only in development */}
-      {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
-    </TooltipProvider>
+          </AuthProvider>
+        </BrowserRouter>
+        {/* React Query Devtools - only in development */}
+        {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+      </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
   </ErrorBoundary>
 );

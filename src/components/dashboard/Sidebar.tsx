@@ -4,7 +4,8 @@ import { Separator } from "@/components/ui/separator";
 import {
   Avatar,
   AvatarFallback,
-  AvatarImage
+  AvatarImage,
+  EnhancedAvatar
 } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -28,12 +29,18 @@ import {
   // Removed Sparkles import
   User,
   Users,
+  Contact,
+  Target,
+  DollarSign,
+  MapPin,
+  FileText,
+  CheckSquare,
   X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useConversations } from '@/hooks/useConversations';
+import { useImprovedConversations } from '@/hooks/useImprovedConversations';
 import { useNavigate } from 'react-router-dom';
 
 interface SidebarProps {
@@ -46,18 +53,24 @@ interface SidebarProps {
 const Sidebar = ({ isOpen, toggleSidebar, onClose, isMobile }: SidebarProps) => {
   const location = useLocation();
   const currentPath = location.pathname;
-  const { user, signOut, profile } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const {
     conversations,
     loading: conversationsLoading,
     setActiveConversation,
-  } = useConversations();
+  } = useImprovedConversations();
 
   const navigation = [
     { name: 'Dashboard', href: '/app', icon: Home },
-    { name: 'Lenders', href: '/app/lenders', icon: Building },
+    { name: 'People', href: '/app/people', icon: Contact },
+    { name: 'Opportunities', href: '/app/opportunities', icon: Target },
     { name: 'Clients', href: '/app/clients', icon: Users },
+    { name: 'Loans', href: '/app/loans', icon: DollarSign },
+    { name: 'Lenders', href: '/app/lenders', icon: Building },
+    { name: 'Realtors', href: '/app/realtors', icon: MapPin },
+    { name: 'Notes', href: '/app/notes', icon: FileText },
+    { name: 'To-dos', href: '/app/todos', icon: CheckSquare },
     { name: 'AI Assistant', href: '/app/assistant', icon: MessageSquare },
   ];
 
@@ -87,10 +100,10 @@ const Sidebar = ({ isOpen, toggleSidebar, onClose, isMobile }: SidebarProps) => 
 
   // Render AI Assistant menu item with last 4 conversations + View All
   const renderAIAssistantMenu = () => {
-    // Sort conversations by updated_at or created_at descending
+    // Sort conversations by created_at descending (updated_at may not be available)
     const sorted = (conversations || []).slice().sort((a, b) => {
-      const aTime = new Date(a.updated_at || a.created_at || 0).getTime();
-      const bTime = new Date(b.updated_at || b.created_at || 0).getTime();
+      const aTime = new Date(a.created_at || 0).getTime();
+      const bTime = new Date(b.created_at || 0).getTime();
       return bTime - aTime;
     });
     const lastFour = sorted.slice(0, 4);
@@ -291,18 +304,19 @@ const Sidebar = ({ isOpen, toggleSidebar, onClose, isMobile }: SidebarProps) => 
                     )}
                     data-testid="sidebar-user-profile"
                   >
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage
-                        src={profile?.avatar_url || user?.user_metadata?.avatar_url || undefined}
-                        alt={profile?.first_name || user?.user_metadata?.full_name || 'User'}
-                      />
-                      <AvatarFallback>
-                        {(profile?.first_name?.[0] || user?.user_metadata?.full_name?.[0]) || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
+                    <EnhancedAvatar
+                      size="md"
+                      showHoverEffect={true}
+                      data={{
+                        avatar_url: user?.user_metadata?.avatar_url,
+                        email: user?.email,
+                        name: user?.user_metadata?.full_name,
+                        display_name: user?.user_metadata?.full_name || user?.email
+                      }}
+                    />
                     {isOpen && (
                       <span className="ml-3 font-medium text-foreground truncate" data-testid="sidebar-user-fullname">
-                        {(profile?.first_name || '') + (profile?.last_name ? ' ' + profile.last_name : '') || user?.user_metadata?.full_name || user?.email || 'No Name'}
+                        {user?.user_metadata?.full_name || user?.email || 'No Name'}
                       </span>
                     )}
                   </Button>

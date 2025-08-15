@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -25,7 +26,7 @@ const LandingPage = () => {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Navigation */}
-      <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur border-b border-gray-200">
+      <header className="sticky top-0 z-40 w-full bg-background/95 backdrop-blur border-b border-border">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
             {/* Logo */}
@@ -34,7 +35,7 @@ const LandingPage = () => {
                 <div className="h-8 w-8 bg-brand-600 rounded-md flex items-center justify-center">
                   <span className="text-white font-bold">MB</span>
                 </div>
-                <span className="text-xl font-semibold text-gray-900">MortgagePro</span>
+                <span className="text-xl font-semibold text-foreground">MortgagePro</span>
               </Link>
             </div>
 
@@ -48,6 +49,7 @@ const LandingPage = () => {
 
             {/* CTA buttons */}
             <div className="hidden md:flex items-center space-x-4">
+              <ThemeToggle />
               <Link to="/login">
                 <Button variant="outline">Log in</Button>
               </Link>

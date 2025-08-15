@@ -28,7 +28,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Lender, useLenders } from "@/hooks/useLenders";
+import { Lender, useImprovedLenders } from "@/hooks/useImprovedLenders";
 import { useLenderDocuments } from "@/hooks/useLenderDocuments";
 import { getFileUrl } from "@/integrations/supabase/client";
 
@@ -43,7 +43,7 @@ export const LenderCard = ({
   handleOpenDocumentUpload,
   handleOpenEditLender,
 }: LenderCardProps) => {
-  const { deleteLender } = useLenders();
+  const { deleteLender } = useImprovedLenders();
   const { documents } = useLenderDocuments();
 
   return (

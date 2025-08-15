@@ -14,7 +14,12 @@ import {
   Activity,
   ClipboardList,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  TrendingUp,
+  Home,
+  Building2,
+  MessageSquare,
+  StickyNote
 } from 'lucide-react';
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { supabase } from '@/integrations/supabase/client';
@@ -39,10 +44,17 @@ import FinancialDetailsTab from '@/components/clients/tabs/FinancialDetailsTab';
 import DocumentsTab from '@/components/clients/tabs/DocumentsTab';
 import NotesTab from '@/components/clients/tabs/NotesTab';
 import ActivityLogTab from '@/components/clients/tabs/ActivityLogTab';
+import { RelationshipsTab } from '@/components/clients/tabs/RelationshipsTab';
+import { LoansTab } from '@/components/clients/tabs/LoansTab';
+import { PropertiesTab } from '@/components/clients/tabs/PropertiesTab';
+import { OpportunitiesTab } from '@/components/clients/tabs/OpportunitiesTab';
+import { EntitiesTab } from '@/components/clients/tabs/EntitiesTab';
+import { OverviewTab } from '@/components/clients/tabs/OverviewTab';
+import { ClientHeader } from '@/components/clients/ClientHeader';
+import { useImprovedClients } from '@/hooks/useImprovedClients';
 
 // Define type aliases from generated types
 type DbClient = Tables<"clients">;
-type ClientNote = Tables<"client_notes">;
 type ClientDocument = Tables<"documents"> & { client_id: string }; // Assuming documents will be filtered by client_id
 type ClientActivity = Tables<"activities"> & { client_id: string }; // Assuming activities will be filtered by client_id
 
@@ -50,7 +62,6 @@ type ClientActivity = Tables<"activities"> & { client_id: string }; // Assuming 
 type PersonalInfoTabData = DbClient;
 type FinancialDetailsTabData = DbClient;
 type DocumentsTabData = ClientDocument[];
-type NotesTabData = { notes: ClientNote[], clientId: string, userId: string | undefined };
 type ActivityLogTabData = ClientActivity[];
 
 // Helper function to format currency (handle null/undefined)
@@ -137,18 +148,21 @@ const ClientDetailPage = () => {
   const navigate = useNavigate();
 
   const [dbClient, setDbClient] = useState<DbClient | null>(null);
-  const [notes, setNotes] = useState<ClientNote[]>([]);
   const [documents, setDocuments] = useState<ClientDocument[]>([]);
   const [activities, setActivities] = useState<ClientActivity[]>([]);
+  const [people, setPeople] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Get people management functions
+  const { addPersonToClient, removePersonFromClient, setPrimaryPerson, deleteClient, isDeleting } = useImprovedClients();
 
   const [editingTab, setEditingTab] = useState<string|null>(null);
   const [editedPersonal, setEditedPersonal] = useState<PersonalInfoTabData|null>(null);
   const [editedFinancial, setEditedFinancial] = useState<FinancialDetailsTabData|null>(null);
   const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false);
   const [pendingTab, setPendingTab] = useState<string|null>(null);
-  const [activeTab, setActiveTab] = useState('personal');
+  const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -175,13 +189,7 @@ const ClientDetailPage = () => {
         setDbClient(clientData);
 
         // Fetch Related Data in parallel
-        const [notesRes, docsRes, activitiesRes] = await Promise.all([
-          supabase
-            .from('client_notes')
-            .select('*')
-            .eq('client_id', clientId)
-            .eq('user_id', user.id) // Ensure note ownership matches user
-            .order('created_at', { ascending: false }),
+        const [docsRes, activitiesRes, peopleRes] = await Promise.all([
           supabase
             .from('documents')
             .select('*')
@@ -194,10 +202,28 @@ const ClientDetailPage = () => {
             .eq('client_id', clientId) // Filter activities by client_id
             // RLS should handle user access check based on client ownership
             .order('created_at', { ascending: false }),
+          supabase
+            .from('client_people')
+            .select(`
+              is_primary,
+              relationship_type,
+              relationship_notes,
+              contact_preference,
+              is_authorized_contact,
+              people:person_id (
+                id,
+                first_name,
+                last_name,
+                email_primary,
+                phone_primary,
+                company_name,
+                title_position
+              )
+            `)
+            .eq('client_id', clientId)
+            .eq('user_id', user.id)
+            .order('is_primary', { ascending: false }),
         ]);
-
-        if (notesRes.error) console.error('Error fetching notes:', notesRes.error.message);
-        else setNotes(notesRes.data || []);
 
         if (docsRes.error) console.error('Error fetching documents:', docsRes.error.message);
         // Ensure we only set documents confirmed to be ClientDocuments
@@ -206,6 +232,19 @@ const ClientDetailPage = () => {
         if (activitiesRes.error) console.error('Error fetching activities:', activitiesRes.error.message);
         // Ensure we only set activities confirmed to be ClientActivities
         else setActivities((activitiesRes.data || []).filter(act => act.client_id === clientId) as ClientActivity[]);
+
+        if (peopleRes.error) console.error('Error fetching people:', peopleRes.error.message);
+        else {
+          const peopleData = peopleRes.data?.map(rel => ({
+            ...rel.people,
+            is_primary: rel.is_primary,
+            relationship_type: rel.relationship_type,
+            relationship_notes: rel.relationship_notes,
+            contact_preference: rel.contact_preference,
+            is_authorized_contact: rel.is_authorized_contact
+          })).filter(p => p.id) || [];
+          setPeople(peopleData);
+        }
 
       } catch (err: any) {
         console.error("Error loading client page data:", err);
@@ -232,7 +271,7 @@ const ClientDetailPage = () => {
 
   // Helper: check if there are unsaved changes
   const hasUnsavedChanges = !!(
-    (editingTab === 'personal' && editedPersonal && JSON.stringify(editedPersonal) !== JSON.stringify(dbClient)) ||
+    (editingTab === 'overview' && editedPersonal && JSON.stringify(editedPersonal) !== JSON.stringify(dbClient)) ||
     (editingTab === 'financial' && editedFinancial && JSON.stringify(editedFinancial) !== JSON.stringify(dbClient))
   );
 
@@ -253,7 +292,7 @@ const ClientDetailPage = () => {
   // Save handler
   const handleSave = async () => {
     let result, error;
-    if (editingTab === 'personal' && editedPersonal) {
+    if (editingTab === 'overview' && editedPersonal) {
       // Save personal info changes to backend
       const updateObj = { ...editedPersonal };
       delete updateObj.id; // id is used as filter, not updated
@@ -270,7 +309,7 @@ const ClientDetailPage = () => {
       setDbClient(result?.[0] || editedPersonal);
       setEditingTab(null);
       setEditedPersonal(null);
-      toast({ title: 'Saved', description: 'Personal information updated.' });
+      toast({ title: 'Saved', description: 'Client information updated.' });
     } else if (editingTab === 'financial' && editedFinancial) {
       // Save financial info changes to backend
       const updateObj = { ...editedFinancial };
@@ -319,7 +358,7 @@ const ClientDetailPage = () => {
 
   if (error) {
     return (
-       <div className="container mx-auto max-w-4xl p-4">
+       <div className="p-6">
          <Button variant="outline" size="sm" asChild className="mb-4">
             <Link to="/app/clients">
               <ArrowLeft className="mr-2 h-4 w-4" /> Back to Clients List
@@ -348,54 +387,151 @@ const ClientDetailPage = () => {
       );
   }
 
-  // Define Tab structure with appropriate data typing
-  const navItems: TabItem[] = [
-    {
-      id: 'personal',
-      label: 'Personal Info',
-      icon: User,
-      component: PersonalInfoTab as React.FC<{data: PersonalInfoTabData}>,
-      title: "Personal Information",
-      description: "View and manage personal details.",
-      data: dbClient as PersonalInfoTabData
-    },
-    {
-      id: 'financial',
-      label: 'Financial Details',
-      icon: DollarSign,
-      component: FinancialDetailsTab as React.FC<{data: FinancialDetailsTabData}>,
-      title: "Financial Details",
-      description: "View and manage financial information.",
-      data: dbClient as FinancialDetailsTabData
-    },
-    {
-      id: 'documents',
-      label: 'Documents',
-      icon: FileText,
-      component: DocumentsTab as React.FC<{data: DocumentsTabData}>,
-      title: "Document Management",
-      description: "Upload, view, and manage required client documents.",
-      data: documents as DocumentsTabData
-    },
-    {
-      id: 'notes',
-      label: 'Notes',
-      icon: ClipboardList,
-      component: NotesTab as React.FC<{data: NotesTabData}>,
-      title: "Client Notes",
-      description: "Add and review notes specific to this client.",
-      data: { notes: notes, clientId: dbClient.id, userId: user?.id } as NotesTabData
-    },
-    {
-      id: 'activity',
-      label: 'Activity Log',
-      icon: Activity,
-      component: ActivityLogTab as React.FC<{data: ActivityLogTabData}>,
-      title: "Activity Log",
-      description: "Track recent activities and interactions.",
-      data: activities as ActivityLogTabData
-    },
-  ];
+  // Get primary person
+  const primaryPerson = people.find(p => p.is_primary);
+
+  // Define Tab structure with dynamic visibility based on client type
+  const getTabsForClientType = (clientType: string) => {
+    const universalTabs = [
+      {
+        id: 'overview',
+        label: 'Overview',
+        icon: User,
+        component: OverviewTab as React.FC<any>,
+        title: "Client Overview",
+        description: "Comprehensive client overview with contact, financial, and profile information.",
+        data: { client: dbClient, primaryPerson: primaryPerson, allPeople: people }
+      },
+      {
+        id: 'opportunities',
+        label: 'Opportunities',
+        icon: TrendingUp,
+        component: OpportunitiesTab as React.FC<any>,
+        title: "Business Opportunities",
+        description: "Track potential business opportunities for this client.",
+        data: { clientId: dbClient.id, clientType: clientType }
+      },
+      {
+        id: 'relationships',
+        label: 'Relationships',
+        icon: User,
+        component: RelationshipsTab as React.FC<any>,
+        title: "Client Relationships",
+        description: "Manage people associated with this client.",
+        data: { clientId: dbClient.id, clientType: clientType, people: people }
+      },
+      {
+        id: 'loans',
+        label: 'Loans',
+        icon: TrendingUp,
+        component: LoansTab as React.FC<any>,
+        title: "Loan Pipeline",
+        description: "Track active and historical loans.",
+        data: { clientId: dbClient.id, clientType: clientType }
+      },
+      {
+        id: 'properties',
+        label: 'Properties',
+        icon: clientType === 'residential' ? Home : Building2,
+        component: PropertiesTab as React.FC<any>,
+        title: "Property Portfolio",
+        description: "Manage properties associated with this client.",
+        data: { clientId: dbClient.id, clientType: clientType }
+      },
+      {
+        id: 'financial',
+        label: 'Financial Details',
+        icon: DollarSign,
+        component: FinancialDetailsTab as React.FC<{data: FinancialDetailsTabData}>,
+        title: "Financial Details",
+        description: "View and manage financial information.",
+        data: dbClient as FinancialDetailsTabData
+      },
+      {
+        id: 'documents',
+        label: 'Documents',
+        icon: FileText,
+        component: DocumentsTab as React.FC<any>,
+        title: "Document Management",
+        description: "Upload, view, and manage required client documents.",
+        data: { clientId: dbClient.id }
+      },
+
+      {
+        id: 'notes',
+        label: 'Notes',
+        icon: StickyNote,
+        component: NotesTab as React.FC<{data: {clientId: string}}>,
+        title: "Client Notes",
+        description: "Add and review notes specific to this client.",
+        data: { clientId: dbClient.id }
+      },
+      {
+        id: 'activity',
+        label: 'Activity Log',
+        icon: Activity,
+        component: ActivityLogTab as React.FC<{data: ActivityLogTabData}>,
+        title: "Activity Log",
+        description: "Track recent activities and interactions.",
+        data: activities as ActivityLogTabData
+      },
+    ];
+
+    // Add commercial-specific tabs
+    if (clientType === 'commercial' || clientType === 'investor') {
+      universalTabs.splice(-2, 0, {
+        id: 'entities',
+        label: 'Entities',
+        icon: Building2,
+        component: EntitiesTab as React.FC<any>,
+        title: "Business Entities",
+        description: "Manage business structure and ownership details.",
+        data: { clientId: dbClient.id }
+      });
+    }
+
+    return universalTabs;
+  };
+
+  const navItems = getTabsForClientType(dbClient.client_type || 'residential');
+
+  // Handler functions for ClientHeader
+  const handleDeleteClient = () => {
+    if (!dbClient) return;
+    
+    const clientName = primaryPerson ? 
+      `${primaryPerson.first_name} ${primaryPerson.last_name}` : 
+      'this client';
+    
+    if (confirm(`Are you sure you want to delete ${clientName}? This action cannot be undone.`)) {
+      deleteClient(dbClient.id);
+      navigate('/app/clients');
+    }
+  };
+
+  const handleUpdateLastContact = async () => {
+    if (!dbClient) return;
+    
+    const { error } = await supabase
+      .from('clients')
+      .update({ last_contact_date: new Date().toISOString() })
+      .eq('id', dbClient.id)
+      .eq('user_id', user?.id);
+    
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update last contact date',
+        variant: 'destructive',
+      });
+    } else {
+      setDbClient({ ...dbClient, last_contact_date: new Date().toISOString() });
+      toast({
+        title: 'Updated',
+        description: 'Last contact date updated successfully',
+      });
+    }
+  };
 
   return (
     <div className="space-y-4 p-4 md:p-6">
@@ -405,72 +541,74 @@ const ClientDetailPage = () => {
         </Link>
       </Button>
 
-      <div className="flex flex-col lg:flex-row gap-6">
-        {/* Sidebar with Client Overview */}
-        <aside className="w-full lg:w-1/4 xl:w-1/5 space-y-4 flex-shrink-0">
-           <Card>
-            <CardHeader>
-              <CardTitle className="text-xl">{dbClient.first_name} {dbClient.last_name}</CardTitle>
-              <CardDescription>Client Overview</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-               <DetailItem icon={Mail} label="Email" value={dbClient.email} />
-               <DetailItem icon={Phone} label="Phone" value={dbClient.phone} />
-               {/* Use employment_status or another field for the badge */}
-               <div className="flex items-center space-x-3">
-                   <BadgeCheck className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
-                   <div className="flex-1">
-                       <p className="text-sm text-muted-foreground">Status</p>
-                       <Badge variant={getStatusVariant(dbClient.employment_status)} className="mt-1">
-                           {dbClient.employment_status || 'N/A'}
-                       </Badge>
-                   </div>
-               </div>
-               <DetailItem icon={CalendarDays} label="Date Added" value={formatDate(dbClient.created_at)} />
-               <DetailItem icon={CalendarDays} label="Last Updated" value={formatDate(dbClient.updated_at)} />
-            </CardContent>
-          </Card>
-        </aside>
+      {/* Enhanced Client Header */}
+      <ClientHeader
+        client={dbClient}
+        primaryPerson={primaryPerson}
+        onEdit={() => setActiveTab('overview')}
+        onAddNote={() => setActiveTab('notes')}
+        onSendMessage={() => setActiveTab('communications')}
+        onDelete={handleDeleteClient}
+        onUpdateLastContact={handleUpdateLastContact}
+      />
 
-        {/* Main Content Area with Tabs */} 
-        <main className="flex-1 min-w-0">
-           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-              <TabsList className="flex w-full mb-4 overflow-x-auto">
-               {navItems.map((item) => (
-                  <TabsTrigger key={item.id} value={item.id} className="flex-shrink-0 flex items-center whitespace-nowrap px-3">
-                    <item.icon className="mr-1 h-4 w-4 flex-shrink-0" />
-                   {item.label}
-                 </TabsTrigger>
-               ))}
-             </TabsList>
+      {/* Main Content Area with Tabs */} 
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+        <TabsList className="flex w-full mb-4 overflow-x-auto">
+         {navItems.map((item) => (
+            <TabsTrigger key={item.id} value={item.id} className="flex-shrink-0 flex items-center whitespace-nowrap px-3">
+              <item.icon className="mr-1 h-4 w-4 flex-shrink-0" />
+             {item.label}
+           </TabsTrigger>
+         ))}
+       </TabsList>
 
-             {navItems.map((item) => (
-               <TabsContent key={item.id} value={item.id}>
-                 {/* Only pass editing props to editable tabs */}
-                 {item.id === 'personal' ? (
-                   <PersonalInfoTab
-                     data={editingTab === 'personal' && editedPersonal ? editedPersonal : dbClient}
-                     isEditing={editingTab === 'personal'}
-                     onEdit={() => { setEditingTab('personal'); setEditedPersonal(dbClient); }}
-                     onChange={setEditedPersonal}
-                     onSave={handleSave}
-                   />
-                 ) : item.id === 'financial' ? (
-                   <FinancialDetailsTab
-                     data={editingTab === 'financial' && editedFinancial ? editedFinancial : dbClient}
-                     isEditing={editingTab === 'financial'}
-                     onEdit={() => { setEditingTab('financial'); setEditedFinancial(dbClient); }}
-                     onChange={setEditedFinancial}
-                     onSave={handleSave}
-                   />
-                 ) : (
-                   <item.component data={item.data} />
-                 )}
-               </TabsContent>
-             ))}
-           </Tabs>
-        </main>
-      </div>
+       {navItems.map((item) => (
+         <TabsContent key={item.id} value={item.id}>
+           {/* Handle different tab types */}
+           {item.id === 'overview' ? (
+             <OverviewTab
+               client={dbClient}
+               primaryPerson={primaryPerson}
+               allPeople={people}
+             />
+           ) : item.id === 'financial' ? (
+             <FinancialDetailsTab
+               data={editingTab === 'financial' && editedFinancial ? editedFinancial : dbClient}
+               isEditing={editingTab === 'financial'}
+               onEdit={() => { setEditingTab('financial'); setEditedFinancial(dbClient); }}
+               onChange={setEditedFinancial}
+               onSave={handleSave}
+             />
+           ) : item.id === 'opportunities' ? (
+             <OpportunitiesTab
+               clientId={dbClient.id}
+               clientType={dbClient.client_type || 'residential'}
+               primaryPerson={primaryPerson}
+             />
+           ) : item.id === 'relationships' ? (
+             <RelationshipsTab
+               clientId={dbClient.id}
+               clientType={dbClient.client_type || 'residential'}
+               people={people}
+               onAddPerson={(personId, isPrimary, relationshipType) => 
+                 addPersonToClient({ clientId: dbClient.id, personId, isPrimary, relationshipType })
+               }
+               onRemovePerson={(personId) => 
+                 removePersonFromClient({ clientId: dbClient.id, personId })
+               }
+               onSetPrimary={(personId) => 
+                 setPrimaryPerson({ clientId: dbClient.id, personId })
+               }
+             />
+           ) : item.id === 'documents' ? (
+             <DocumentsTab clientId={dbClient.id} />
+           ) : (
+             <item.component data={item.data} />
+           )}
+         </TabsContent>
+       ))}
+     </Tabs>
       <Dialog open={unsavedDialogOpen} onOpenChange={setUnsavedDialogOpen}>
         <DialogContent>
           <DialogHeader>

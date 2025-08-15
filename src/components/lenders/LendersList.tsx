@@ -21,7 +21,7 @@ import { LenderCard } from "./LenderCard";
 import { NoLendersFound } from "./NoLendersFound";
 
 // Use the Lender type from useLenders
-import { Lender } from '@/hooks/useLenders';
+import { Lender } from '@/hooks/useImprovedLenders';
 
 interface LendersListProps {
   filteredLenders: Lender[];
@@ -32,6 +32,9 @@ interface LendersListProps {
   selectAll: () => void;
   handleOpenManageDocuments: (lender: Lender) => void;
   handleOpenEditLender: (lender: Lender) => void;
+  handleManagePeople?: (lender: Lender) => void;
+  expandedPeople?: Record<string, boolean>;
+  onTogglePeopleExpanded?: (lenderId: string) => void;
   setIsAddLenderOpen: (isOpen: boolean) => void;
   resetFilters: () => void;
   searchTerm: string;
@@ -49,6 +52,9 @@ export const LendersList: React.FC<LendersListProps> = ({
   selectAll,
   handleOpenManageDocuments,
   handleOpenEditLender,
+  handleManagePeople,
+  expandedPeople = {},
+  onTogglePeopleExpanded,
   setIsAddLenderOpen,
   resetFilters,
   searchTerm,
@@ -109,7 +115,10 @@ export const LendersList: React.FC<LendersListProps> = ({
                   lender={lender}
                   selectedLenders={selectedLenders}
                   toggleLenderSelection={toggleLenderSelection}
-                  handleOpenManageDocuments={handleOpenManageDocuments} // <-- Pass down updated prop
+                  handleOpenManageDocuments={handleOpenManageDocuments}
+                  handleManagePeople={handleManagePeople}
+                  expandedPeople={expandedPeople}
+                  onTogglePeopleExpanded={onTogglePeopleExpanded}
                 />
               ))}
             </TableBody>

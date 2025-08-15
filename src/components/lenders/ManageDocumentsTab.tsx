@@ -40,26 +40,23 @@ const ManageDocumentsTab: React.FC<ManageDocumentsTabProps> = ({
                 <Table className="table-fixed w-full">
                     <TableHeader>
                         <TableRow>
-                            {/* Only Name column has explicit width */}
                             <TableHead className="w-[60%] pl-4">Name</TableHead>
-                            {/* Removed explicit width from Uploaded */}
-                            <TableHead className="pl-2">Uploaded</TableHead> {/* Added some padding */}
-                            {/* Removed explicit width from Actions */}
+                            <TableHead className="pl-2">Uploaded</TableHead>
                             <TableHead className="text-right pr-4">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {documents.map((doc) => (
                             <TableRow key={doc.id} className="hover:bg-muted/50">
-                                {/* Keep overflow/break strategy for Name cell */}
                                 <TableCell
                                     className="font-medium py-2 pl-4 pr-2 overflow-hidden break-words"
                                     title={doc.name}
                                 >
                                     {doc.name}
                                 </TableCell>
-                                {/* Added padding to Uploaded cell */}
-                                <TableCell className="text-sm text-muted-foreground py-2 pl-2">{new Date(doc.created_at).toLocaleDateString()}</TableCell>
+                                <TableCell className="text-sm text-muted-foreground py-2 pl-2">
+                                    {new Date(doc.created_at).toLocaleDateString()}
+                                </TableCell>
                                 <TableCell className="text-right py-1 pr-4">
                                     <Button
                                         variant="ghost"

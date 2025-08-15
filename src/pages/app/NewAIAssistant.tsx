@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useConversations } from '@/hooks/useConversations';
+import { useImprovedConversations } from '@/hooks/useImprovedConversations';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from "@/components/ui/use-toast";
 import { ConversationSidebar } from '@/components/ai-assistant/ConversationSidebar';
@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { MessageSquareText, Settings2, Brain, Menu, X } from 'lucide-react';
 import { useLenderDocuments } from '@/hooks/useLenderDocuments';
-import { useClients } from '@/hooks/useClients';
+import { useImprovedClients } from '@/hooks/useImprovedClients';
 import { useImprovedLenders } from '@/hooks/useImprovedLenders';
 
 import { Badge } from "@/components/ui/badge";
@@ -38,7 +38,7 @@ interface Message {
 const NewAIAssistantPage: React.FC = () => {
   const { user } = useAuth();
   const { documents: allUserDocuments } = useLenderDocuments();
-  const { clients: allUserClients } = useClients();
+  const { clients: allUserClients } = useImprovedClients();
   const { lenders: allUserLenders } = useImprovedLenders();
 
   const {
@@ -52,7 +52,7 @@ const NewAIAssistantPage: React.FC = () => {
     currentSessionId,
     addMessage,
     fetchMessages,
-  } = useConversations();
+  } = useImprovedConversations();
 
   // Session from URL param
   const [searchParams] = typeof window !== 'undefined' && window.location ? [new URLSearchParams(window.location.search)] : [null];

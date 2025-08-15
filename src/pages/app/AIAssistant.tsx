@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useConversations } from '@/hooks/useConversations';
+import { useImprovedConversations } from '@/hooks/useImprovedConversations';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from "@/components/ui/use-toast";
 import { ConversationSidebar } from '@/components/ai-assistant/ConversationSidebar';
@@ -22,7 +22,7 @@ import { MessageSquareText, Settings2, Library, Brain } from 'lucide-react'; // 
 // Added hook to get documents for context reconstruction
 import { useLenderDocuments } from '@/hooks/useLenderDocuments';
 // Import hook to fetch clients for tooltip
-import { useClients } from '@/hooks/useClients';
+import { useImprovedClients } from '@/hooks/useImprovedClients';
 import { useSearchParams } from 'react-router-dom';
 
 // Interface for individual messages remains the same
@@ -38,7 +38,7 @@ interface Message {
 const AIAssistantPage: React.FC = () => {
   const { user } = useAuth();
   const { documents: allUserDocuments } = useLenderDocuments(); // Get documents for context
-  const { clients: allUserClients } = useClients(); // Get clients for tooltip
+  const { clients: allUserClients } = useImprovedClients(); // Get clients for tooltip
 
   const {
     conversations: conversationList,
@@ -53,7 +53,7 @@ const AIAssistantPage: React.FC = () => {
     error: messageError,
     addMessage,
     fetchMessages,
-  } = useConversations();
+  } = useImprovedConversations();
 
   // --- Session from URL param ---
   const [searchParams] = typeof window !== 'undefined' && window.location ? [new URLSearchParams(window.location.search)] : [null];

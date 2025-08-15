@@ -28,7 +28,7 @@ import {
   CardTitle 
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage, EnhancedAvatar } from "@/components/ui/avatar";
 import { 
   Dialog, 
   DialogContent, 
@@ -163,8 +163,46 @@ const Account = () => {
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') || 'profile';
   
-  const { profile, user: authUser, initialized } = useAuth();
+  const { user: authUser, initialized } = useAuth();
   const authLoading = !initialized;
+  
+  // Profile state
+  const [profile, setProfile] = useState<Tables<'profiles'> | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  
+  // Fetch profile data
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!authUser?.id) {
+        setProfileLoading(false);
+        return;
+      }
+      
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authUser.id)
+          .single();
+          
+        if (error) {
+          console.error('Error fetching profile:', error);
+          setProfile(null);
+        } else {
+          setProfile(data);
+        }
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+        setProfile(null);
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+    
+    if (initialized) {
+      fetchProfile();
+    }
+  }, [authUser?.id, initialized]);
   
   // Add direct Supabase profile update function
   const updateProfile = async (updates: Partial<Tables<'profiles'>>) => {
@@ -236,8 +274,8 @@ const Account = () => {
     }
   }, [profile, authUser]);
 
-  // Show loading state while auth is initializing
-  if (authLoading) {
+  // Show loading state while auth is initializing or profile is loading
+  if (authLoading || profileLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
@@ -405,10 +443,18 @@ const Account = () => {
             <CardContent className="space-y-6">
               <div className="flex flex-col sm:flex-row items-start gap-6">
                 <div className="flex flex-col items-center gap-2">
-                  <Avatar className="h-24 w-24">
-                    <AvatarImage src={localProfile.avatar_url || ''} />
-                    <AvatarFallback>{(localProfile.first_name?.charAt(0) || localProfile.last_name?.charAt(0) || '?')}</AvatarFallback>
-                  </Avatar>
+                  <EnhancedAvatar
+                    className="h-24 w-24"
+                    data={{
+                      avatar_url: localProfile.avatar_url || '',
+                      email: localProfile.email || '',
+                      first_name: localProfile.first_name || '',
+                      last_name: localProfile.last_name || '',
+                      display_name: `${localProfile.first_name || ''} ${localProfile.last_name || ''}`
+                    }}
+                    size="xl"
+                    showHoverEffect
+                  />
                   <Dialog open={avatarDialogOpen} onOpenChange={open => { setAvatarDialogOpen(open); if (!open) reset(); }}>
                     <DialogTrigger asChild>
                       <Button variant="outline" size="sm">

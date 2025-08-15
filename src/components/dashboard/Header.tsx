@@ -1,5 +1,6 @@
+import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Bell, Check, Menu } from "lucide-react";
+import { Bell, Check, Menu, Settings, User, LogOut } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,40 +17,59 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 
 interface HeaderProps {
   toggleMobileMenu: () => void;
 }
 
-// Helper function to get page title from path
-const getPageTitle = (path: string): string => {
-  // Handle potential client detail pages (e.g., /app/clients/123)
-  if (path.startsWith("/app/clients/") && path !== '/app/clients') {
-    return "Client Details"; // Or fetch client name if possible/needed
+// Helper function to generate breadcrumbs from path
+const getBreadcrumbs = (path: string) => {
+  const segments = path.split('/').filter(Boolean);
+  const breadcrumbs = [];
+  
+  // Always start with Dashboard
+  breadcrumbs.push({ label: 'Dashboard', href: '/app' });
+  
+  if (segments.length > 1) {
+    const section = segments[1];
+    const sectionLabels: Record<string, string> = {
+      'clients': 'Clients',
+      'lenders': 'Lenders',
+      'people': 'People',
+      'opportunities': 'Opportunities',
+      'loans': 'Loans',
+      'realtors': 'Realtors',
+      'assistant': 'AI Assistant',
+      'account': 'Account Settings',
+      'library': 'Library'
+    };
+    
+    const sectionLabel = sectionLabels[section] || section.charAt(0).toUpperCase() + section.slice(1);
+    breadcrumbs.push({ label: sectionLabel, href: `/app/${section}` });
+    
+    // Add detail page if exists
+    if (segments.length > 2) {
+      breadcrumbs.push({ label: 'Details', href: path });
+    }
   }
-
-  switch (path) {
-    case '/app':
-      return 'Dashboard';
-    case '/app/lenders':
-      return 'Lenders';
-    case '/app/clients':
-      return 'Clients';
-    case '/app/assistant':
-      return 'AI Assistant';
-    case '/app/account':
-      return 'Account Settings';
-    case '/app/library':
-      return 'Library';
-    default:
-      return 'Dashboard'; // Fallback title
-  }
+  
+  return breadcrumbs;
 };
 
 const Header = ({ toggleMobileMenu }: HeaderProps) => {
   const location = useLocation();
-  const pageTitle = getPageTitle(location.pathname);
-  const { user } = useAuth();
+  const breadcrumbs = getBreadcrumbs(location.pathname);
+  const { user, signOut } = useAuth();
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -154,10 +174,23 @@ const Header = ({ toggleMobileMenu }: HeaderProps) => {
           <Menu size={20} />
         </Button>
 
-        {/* Dynamic Page Title - Updated text color */}
-        <div className="text-lg font-semibold text-foreground hidden md:flex items-center whitespace-nowrap">
-           {pageTitle}
-        </div>
+        {/* Breadcrumb Navigation */}
+        <Breadcrumb className="hidden md:flex">
+          <BreadcrumbList>
+            {breadcrumbs.map((crumb, index) => [
+              <BreadcrumbItem key={`item-${crumb.href}`}>
+                {index === breadcrumbs.length - 1 ? (
+                  <BreadcrumbPage className="font-semibold">{crumb.label}</BreadcrumbPage>
+                ) : (
+                  <BreadcrumbLink asChild>
+                    <Link to={crumb.href}>{crumb.label}</Link>
+                  </BreadcrumbLink>
+                )}
+              </BreadcrumbItem>,
+              index < breadcrumbs.length - 1 && <BreadcrumbSeparator key={`sep-${crumb.href}`} />
+            ]).flat().filter(Boolean)}
+          </BreadcrumbList>
+        </Breadcrumb>
 
         {/* Spacer */}
         <div className="flex-1"></div>
@@ -166,6 +199,9 @@ const Header = ({ toggleMobileMenu }: HeaderProps) => {
 
         {/* Right side actions - Updated colors */}
         <div className="flex items-center space-x-2 lg:space-x-4"> 
+          {/* Theme Toggle */}
+          <ThemeToggle />
+          
           {/* Notification bell - Updated colors */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -236,6 +272,44 @@ const Header = ({ toggleMobileMenu }: HeaderProps) => {
                 )}
               </div>
 
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* User Settings Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                <Avatar className="h-9 w-9">
+                  <AvatarImage src={user?.user_metadata?.avatar_url} alt={user?.email} />
+                  <AvatarFallback>
+                    {user?.email?.charAt(0).toUpperCase() || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56" align="end" forceMount>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">
+                    {user?.user_metadata?.full_name || 'User'}
+                  </p>
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {user?.email}
+                  </p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link to="/app/account" className="flex items-center">
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Settings</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => signOut()}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Log out</span>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

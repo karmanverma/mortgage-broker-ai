@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useConversations } from '@/hooks/useConversations';
+import { useImprovedConversations } from '@/hooks/useImprovedConversations';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from "@/components/ui/use-toast";
 import { useLenderDocuments } from '@/hooks/useLenderDocuments';
-import { useClients } from '@/hooks/useClients';
+import { useImprovedClients } from '@/hooks/useImprovedClients';
 import { useImprovedLenders } from '@/hooks/useImprovedLenders';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Brain, Settings2 } from 'lucide-react';
@@ -38,7 +38,7 @@ const NewAIAssistantV2: React.FC = () => {
   const mode = searchParams.get('mode') || 'new'; // 'new', 'chat', 'library'
 
   const { documents: allUserDocuments } = useLenderDocuments();
-  const { clients: allUserClients } = useClients();
+  const { clients: allUserClients } = useImprovedClients();
   const { lenders: allUserLenders } = useImprovedLenders();
 
   const {
@@ -52,7 +52,7 @@ const NewAIAssistantV2: React.FC = () => {
     currentSessionId,
     addMessage,
     fetchMessages,
-  } = useConversations();
+  } = useImprovedConversations();
 
   // Context Panel State
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
